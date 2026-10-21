@@ -1,0 +1,49 @@
+{
+    "hryvinskyi_mcp_ability_override": {
+        "column": {
+            "ability": true,
+            "deny": true,
+            "confirm": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "hryvinskyi_mcp_session": {
+        "column": {
+            "session_id": true,
+            "user_type": true,
+            "user_id": true,
+            "client_name": true,
+            "client_version": true,
+            "protocol_version": true,
+            "created_at": true,
+            "last_seen_at": true
+        },
+        "index": {
+            "HRYVINSKYI_MCP_SESSION_LAST_SEEN_AT": true,
+            "HRYVINSKYI_MCP_SESSION_USER_TYPE_USER_ID_LAST_SEEN_AT": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "hryvinskyi_mcp_confirmation": {
+        "column": {
+            "token": true,
+            "session_id": true,
+            "user_type": true,
+            "user_id": true,
+            "ability": true,
+            "arguments_hash": true,
+            "expires_at": true
+        },
+        "index": {
+            "HRYVINSKYI_MCP_CONFIRMATION_EXPIRES_AT": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    }
+}

@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
+<!--
+    The MCP endpoint. Magento authenticates the caller and checks the resource on every method, then the module's
+    request processor answers: POST carries JSON-RPC messages, DELETE ends a session, and GET is declared only so the
+    processor can answer it with 405 (the server offers no event stream) instead of the router answering 404.
+-->
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
+    <route url="/V1/mcp" method="POST">
+        <service class="Hryvinskyi\McpServer\Api\McpEndpointInterface" method="handle"/>
+        <resources>
+            <resource ref="Hryvinskyi_McpServer::access"/>
+        </resources>
+    </route>
+    <route url="/V1/mcp" method="GET">
+        <service class="Hryvinskyi\McpServer\Api\McpEndpointInterface" method="handle"/>
+        <resources>
+            <resource ref="Hryvinskyi_McpServer::access"/>
+        </resources>
+    </route>
+    <route url="/V1/mcp" method="DELETE">
+        <service class="Hryvinskyi\McpServer\Api\McpEndpointInterface" method="handle"/>
+        <resources>
+            <resource ref="Hryvinskyi_McpServer::access"/>
+        </resources>
+    </route>
+</routes>

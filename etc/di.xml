@@ -1,0 +1,185 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="Hryvinskyi\McpServer\Api\ConfigInterface" type="Hryvinskyi\McpServer\Model\Config"/>
+    <preference for="Hryvinskyi\McpServer\Api\McpEndpointInterface" type="Hryvinskyi\McpServer\Model\McpEndpointPlaceholder"/>
+    <preference for="Hryvinskyi\McpServer\Api\Data\AbilityInterface" type="Hryvinskyi\McpServer\Model\Data\Ability"/>
+    <preference for="Hryvinskyi\McpServer\Api\Data\AbilityPageInterface" type="Hryvinskyi\McpServer\Model\Data\AbilityPage"/>
+    <preference for="Hryvinskyi\McpServer\Api\Data\CallerInterface" type="Hryvinskyi\McpServer\Model\Data\Caller"/>
+    <preference for="Hryvinskyi\McpServer\Api\Data\ClientInterface" type="Hryvinskyi\McpServer\Model\Data\Client"/>
+    <preference for="Hryvinskyi\McpServer\Api\Data\InvocationInterface" type="Hryvinskyi\McpServer\Model\Data\Invocation"/>
+    <preference for="Hryvinskyi\McpServer\Api\Data\InvocationResultInterface" type="Hryvinskyi\McpServer\Model\Data\InvocationResult"/>
+
+    <!-- Exposure: stored overrides, the built-in deny-list and the policy that weighs every rule -->
+    <preference for="Hryvinskyi\McpServer\Api\Data\AbilityOverrideInterface" type="Hryvinskyi\McpServer\Model\AbilityOverride"/>
+    <preference for="Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface" type="Hryvinskyi\McpServer\Model\AbilityOverrideRepository"/>
+    <preference for="Hryvinskyi\McpServer\Api\ExposurePolicyInterface" type="Hryvinskyi\McpServer\Model\Exposure\ExposurePolicy"/>
+    <preference for="Hryvinskyi\McpServer\Api\Data\ExposureDecisionInterface" type="Hryvinskyi\McpServer\Model\Data\ExposureDecision"/>
+    <type name="Hryvinskyi\McpServer\Model\Exposure\ExposurePolicy">
+        <arguments>
+            <argument name="rules" xsi:type="array">
+                <item name="denyList" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\DenyListRule</item>
+                <item name="builtInDenyList" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\BuiltInDenyListRule</item>
+                <item name="readOnlyMode" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\ReadOnlyModeRule</item>
+                <item name="anonymousAbility" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\AnonymousAbilityRule</item>
+                <item name="confirmation" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\ConfirmationRule</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Exposure\Rule\BuiltInDenyListRule">
+        <arguments>
+            <argument name="patterns" xsi:type="array">
+                <item name="token_issuers_and_integrations" xsi:type="string">integration.*</item>
+                <item name="two_factor_authentication" xsi:type="string">two_factor_auth.*</item>
+                <item name="jwt_user_tokens" xsi:type="string">jwt_user_token.*</item>
+                <item name="login_as_customer" xsi:type="string">login_as_customer*.*</item>
+                <item name="customer_password_reset" xsi:type="string">customer.account_management.*password*</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- Catalog and invoker: every source's abilities by name, and the checked call of one of them -->
+    <preference for="Hryvinskyi\McpServer\Api\AbilityCatalogInterface" type="Hryvinskyi\McpServer\Model\AbilityCatalog"/>
+    <preference for="Hryvinskyi\McpServer\Model\Catalog\AbilitySourceResolverInterface" type="Hryvinskyi\McpServer\Model\AbilityCatalog"/>
+    <preference for="Hryvinskyi\McpServer\Api\AbilityInvokerInterface" type="Hryvinskyi\McpServer\Model\AbilityInvoker"/>
+    <preference for="Hryvinskyi\McpServer\Model\Clock\ClockInterface" type="Hryvinskyi\McpServer\Model\Clock\HrtimeClock"/>
+    <type name="Hryvinskyi\McpServer\Model\AbilityCatalog">
+        <arguments>
+            <!-- Ability sources keyed by their code; a module adds its own source as an item here -->
+            <argument name="sources" xsi:type="array">
+                <item name="webapi" xsi:type="object">Hryvinskyi\McpServer\Model\Source\Webapi\WebapiAbilitySource</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\AbilityInvoker">
+        <arguments>
+            <!-- Invocation listeners keyed by a name; a module that records calls adds its listener here -->
+            <argument name="listeners" xsi:type="array"/>
+            <!-- Invocation guards keyed by a name; each may refuse a call for the arguments it carries -->
+            <argument name="guards" xsi:type="array">
+                <item name="customerPasswordHash" xsi:type="object">Hryvinskyi\McpServer\Model\Guard\CustomerPasswordHashGuard</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Guard\CustomerPasswordHashGuard">
+        <arguments>
+            <argument name="ability" xsi:type="string">customer.customer_repository.save</argument>
+        </arguments>
+    </type>
+
+    <!-- Web API source: every webapi.xml route's service method as an ability -->
+    <preference for="Hryvinskyi\McpServer\Model\Service\ServiceLocatorInterface" type="Hryvinskyi\McpServer\Model\Service\ObjectManagerServiceLocator"/>
+    <preference for="Hryvinskyi\McpServer\Model\Source\Webapi\Metadata\MetadataReaderInterface" type="Hryvinskyi\McpServer\Model\Source\Webapi\Metadata\ServiceMetadataReader"/>
+    <preference for="Hryvinskyi\McpServer\Model\Source\Webapi\Schema\InputSchemaBuilderInterface" type="Hryvinskyi\McpServer\Model\Source\Webapi\Schema\CachedInputSchemaBuilder"/>
+    <type name="Hryvinskyi\McpServer\Model\Source\Webapi\Schema\CachedInputSchemaBuilder">
+        <arguments>
+            <argument name="inner" xsi:type="object">Hryvinskyi\McpServer\Model\Source\Webapi\Schema\InputSchemaBuilder</argument>
+            <argument name="cache" xsi:type="object">Hryvinskyi\McpServer\Model\Cache\Type\McpCache</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Source\Webapi\Metadata\ServiceMetadataReader">
+        <arguments>
+            <!-- Remembers a failed build of the Web API metadata for a few minutes -->
+            <argument name="cache" xsi:type="object">Hryvinskyi\McpServer\Model\Cache\Type\McpCache</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Source\Webapi\RouteAbilityBuilder">
+        <arguments>
+            <!-- Access by ability name (read, write or delete) for a route whose HTTP method tells the wrong story, such as a GET route that changes data -->
+            <argument name="accessOverrides" xsi:type="array"/>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Source\Webapi\RouteIndex">
+        <arguments>
+            <!-- Service interfaces whose routes are never abilities; the module's own endpoint is one -->
+            <argument name="excludedServices" xsi:type="array">
+                <item name="mcpEndpoint" xsi:type="string">Hryvinskyi\McpServer\Api\McpEndpointInterface</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- MCP protocol: sessions and confirmation tokens kept in the database, limits, the JSON-RPC method handlers and the meta-tools -->
+    <preference for="Hryvinskyi\McpServer\Model\Clock\WallClockInterface" type="Hryvinskyi\McpServer\Model\Clock\SystemWallClock"/>
+    <preference for="Hryvinskyi\McpServer\Model\Session\SessionStoreInterface" type="Hryvinskyi\McpServer\Model\Session\DbSessionStore"/>
+    <preference for="Hryvinskyi\McpServer\Model\Confirmation\ConfirmationStoreInterface" type="Hryvinskyi\McpServer\Model\Confirmation\DbConfirmationStore"/>
+    <type name="Hryvinskyi\McpServer\Model\Session\DbSessionStore">
+        <arguments>
+            <!-- Live sessions one caller may hold; opening one more ends the caller's least recently seen -->
+            <argument name="maxSessionsPerCaller" xsi:type="number">20</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\Server">
+        <arguments>
+            <!-- The longest request body accepted, in bytes -->
+            <argument name="maxBodyBytes" xsi:type="number">1048576</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\MessageParser">
+        <arguments>
+            <!-- The most messages one batch may hold -->
+            <argument name="maxBatchSize" xsi:type="number">20</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\ProtocolVersions">
+        <arguments>
+            <!-- Protocol versions the server speaks, newest first -->
+            <argument name="versions" xsi:type="array">
+                <item name="v2025_11_25" xsi:type="string">2025-11-25</item>
+                <item name="v2025_06_18" xsi:type="string">2025-06-18</item>
+                <item name="v2025_03_26" xsi:type="string">2025-03-26</item>
+                <item name="v2024_11_05" xsi:type="string">2024-11-05</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\Dispatcher">
+        <arguments>
+            <!-- Method handlers keyed by the JSON-RPC method they handle -->
+            <argument name="handlers" xsi:type="array">
+                <item name="initialize" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Method\Initialize</item>
+                <item name="notifications/initialized" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Method\Initialized</item>
+                <item name="ping" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Method\Ping</item>
+                <item name="tools/list" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Method\ToolsList</item>
+                <item name="tools/call" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Method\ToolsCall</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\Tool\ToolRegistry">
+        <arguments>
+            <!-- The tools a client sees: abilities are found and run through these, never listed as tools -->
+            <argument name="tools" xsi:type="array">
+                <item name="discover_abilities" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Tool\DiscoverAbilities</item>
+                <item name="get_ability_info" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Tool\GetAbilityInfo</item>
+                <item name="execute_ability" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Tool\ExecuteAbility</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\Tool\ExecuteAbility">
+        <arguments>
+            <!-- How each invocation outcome is answered, keyed by the outcome's value -->
+            <argument name="outcomeAnswers" xsi:type="array">
+                <item name="succeeded" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Tool\Outcome\SucceededAnswer</item>
+                <item name="failed" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Tool\Outcome\FailedAnswer</item>
+                <item name="denied" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Tool\Outcome\DeniedAnswer</item>
+                <item name="needs_confirmation" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Tool\Outcome\ConfirmationAnswer</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- HTTP transport: the REST request processor of the MCP endpoint -->
+    <type name="Hryvinskyi\McpServer\Model\Http\McpRequestProcessor">
+        <arguments>
+            <!-- What the endpoint does per uppercase HTTP method; any other method is answered with 405 -->
+            <argument name="verbs" xsi:type="array">
+                <item name="POST" xsi:type="object">Hryvinskyi\McpServer\Model\Http\Verb\PostMessages</item>
+                <item name="DELETE" xsi:type="object">Hryvinskyi\McpServer\Model\Http\Verb\EndSession</item>
+            </argument>
+        </arguments>
+    </type>
+</config>

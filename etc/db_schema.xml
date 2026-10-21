@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="hryvinskyi_mcp_ability_override" resource="default" engine="innodb"
+           comment="MCP Server per-ability overrides">
+        <column xsi:type="varchar" name="ability" nullable="false" length="255" comment="Ability name"/>
+        <column xsi:type="smallint" name="deny" unsigned="true" nullable="false" identity="false" default="0"
+                comment="Ability is on the deny-list"/>
+        <column xsi:type="smallint" name="confirm" unsigned="true" nullable="false" identity="false" default="0"
+                comment="Each call of the ability must be confirmed"/>
+        <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP"
+                comment="Updated At"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="ability"/>
+        </constraint>
+    </table>
+    <table name="hryvinskyi_mcp_session" resource="default" engine="innodb" comment="MCP Server sessions">
+        <column xsi:type="char" name="session_id" nullable="false" length="32" comment="Session ID"/>
+        <column xsi:type="smallint" name="user_type" unsigned="true" nullable="false" identity="false"
+                comment="User type of the caller who opened the session"/>
+        <column xsi:type="int" name="user_id" unsigned="true" nullable="true" identity="false"
+                comment="User ID of the caller who opened the session; null for a guest"/>
+        <column xsi:type="varchar" name="client_name" nullable="false" length="255" default=""
+                comment="Name the MCP client gave"/>
+        <column xsi:type="varchar" name="client_version" nullable="false" length="64" default=""
+                comment="Version the MCP client gave"/>
+        <column xsi:type="varchar" name="protocol_version" nullable="false" length="16"
+                comment="Negotiated MCP protocol version"/>
+        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP"
+                comment="Created At"/>
+        <column xsi:type="timestamp" name="last_seen_at" on_update="false" nullable="false"
+                default="CURRENT_TIMESTAMP" comment="Last Seen At"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="session_id"/>
+        </constraint>
+        <index referenceId="HRYVINSKYI_MCP_SESSION_LAST_SEEN_AT" indexType="btree">
+            <column name="last_seen_at"/>
+        </index>
+        <index referenceId="HRYVINSKYI_MCP_SESSION_USER_TYPE_USER_ID_LAST_SEEN_AT" indexType="btree">
+            <column name="user_type"/>
+            <column name="user_id"/>
+            <column name="last_seen_at"/>
+        </index>
+    </table>
+    <table name="hryvinskyi_mcp_confirmation" resource="default" engine="innodb"
+           comment="MCP Server confirmation tokens">
+        <column xsi:type="char" name="token" nullable="false" length="32" comment="Confirmation token"/>
+        <column xsi:type="char" name="session_id" nullable="false" length="32" default=""
+                comment="Session the confirmed call is made in; empty outside any session"/>
+        <column xsi:type="smallint" name="user_type" unsigned="true" nullable="false" identity="false"
+                comment="User type of the caller who made the call"/>
+        <column xsi:type="int" name="user_id" unsigned="true" nullable="true" identity="false"
+                comment="User ID of the caller who made the call; null for a guest"/>
+        <column xsi:type="varchar" name="ability" nullable="false" length="255" comment="Ability name"/>
+        <column xsi:type="char" name="arguments_hash" nullable="false" length="64"
+                comment="SHA-256 of the call's arguments as canonical JSON"/>
+        <column xsi:type="timestamp" name="expires_at" on_update="false" nullable="false"
+                default="CURRENT_TIMESTAMP" comment="Expires At"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="token"/>
+        </constraint>
+        <index referenceId="HRYVINSKYI_MCP_CONFIRMATION_EXPIRES_AT" indexType="btree">
+            <column name="expires_at"/>
+        </index>
+    </table>
+</schema>

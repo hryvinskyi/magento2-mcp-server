@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="hryvinskyi_mcp" translate="label" sortOrder="400">
+            <label>MCP Server</label>
+        </tab>
+        <section id="hryvinskyi_mcp_server" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+            <label>MCP Server</label>
+            <tab>hryvinskyi_mcp</tab>
+            <resource>Hryvinskyi_McpServer::config</resource>
+            <group id="general" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>General</label>
+                <field id="enabled" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Enable MCP Server</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>While disabled, the MCP endpoint refuses every message.</comment>
+                </field>
+                <field id="read_only_mode" translate="label comment" type="select" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Read-only Mode</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Clients may only call abilities that read data; every ability that writes or deletes is blocked.</comment>
+                </field>
+                <field id="expose_anonymous_abilities" translate="label comment" type="select" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Expose Anonymous Abilities</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Abilities that any guest may call through the REST API, such as account creation or guest checkout. Through MCP the CAPTCHA and rate limits set for each REST route do not apply, so these abilities stay denied unless this is Yes.</comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

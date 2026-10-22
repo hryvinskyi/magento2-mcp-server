@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Stores › Settings › MCP Server**: the server's state, the endpoint URL and the stdio command, how to authorize, the
+  protocol version and how many abilities a client may call, and a configuration to copy per client (Claude Desktop,
+  Cursor) and transport (HTTP, stdio). No secret is printed: the token and the login are placeholders.
+- The ability catalog on that page: every ability with its source, module, access, required ACL and exposure, with the
+  reason. Search and filters by source, module, access and exposure.
+- Changing exposure from the page: a row puts its ability on the deny-list or takes it off; mass actions add to or
+  remove from the deny-list, and require or clear confirmation, for the selection or for every ability the search
+  finds. They need the new resource **Manage ability exposure**; the page needs **View the MCP Server page**.
+- `get_ability_info` answers `denialReason` for an ability no client may call.
+- The admin menu block of `hryvinskyi/magento2-base` on the page and the settings section (handle
+  `hryvinskyi_mcp_server_menu`, which another module adds items to).
+
+### Changed
+- Requires `hryvinskyi/magento2-base` ^2.2 and `magento/module-ui`.
+
 ### Fixed
 - An input schema whose properties (or other named schemas) are named `"0"`, `"1"`, … in order is listed as a JSON
   object; it was listed as an array.

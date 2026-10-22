@@ -1,0 +1,149 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
+<listing xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Ui:etc/ui_configuration.xsd">
+    <argument name="data" xsi:type="array">
+        <item name="js_config" xsi:type="array">
+            <item name="provider" xsi:type="string">hryvinskyi_mcp_ability_listing.hryvinskyi_mcp_ability_listing_data_source</item>
+        </item>
+    </argument>
+    <settings>
+        <spinner>hryvinskyi_mcp_ability_columns</spinner>
+        <deps>
+            <dep>hryvinskyi_mcp_ability_listing.hryvinskyi_mcp_ability_listing_data_source</dep>
+        </deps>
+    </settings>
+    <dataSource name="hryvinskyi_mcp_ability_listing_data_source" component="Magento_Ui/js/grid/provider">
+        <settings>
+            <storageConfig>
+                <param name="indexField" xsi:type="string">name</param>
+            </storageConfig>
+            <updateUrl path="mui/index/render"/>
+        </settings>
+        <aclResource>Hryvinskyi_McpServer::view</aclResource>
+        <dataProvider class="Hryvinskyi\McpServer\Ui\DataProvider\AbilityDataProvider"
+                      name="hryvinskyi_mcp_ability_listing_data_source">
+            <settings>
+                <requestFieldName>name</requestFieldName>
+                <primaryFieldName>name</primaryFieldName>
+            </settings>
+        </dataProvider>
+    </dataSource>
+    <listingToolbar name="listing_top">
+        <bookmark name="bookmarks"/>
+        <columnsControls name="columns_controls"/>
+        <filterSearch name="fulltext"/>
+        <filters name="listing_filters"/>
+        <!-- Shown only to an admin who may manage the abilities' exposure; each change applies at once -->
+        <massaction name="listing_massaction" class="Hryvinskyi\McpServer\Ui\Component\ManageMassAction">
+            <action name="deny">
+                <settings>
+                    <confirm>
+                        <message translate="true">No client will be able to call the selected abilities.</message>
+                        <title translate="true">Add to deny-list?</title>
+                    </confirm>
+                    <url path="hryvinskyi_mcp/server/exposure/change/deny"/>
+                    <type>deny</type>
+                    <label translate="true">Add to deny-list</label>
+                </settings>
+            </action>
+            <action name="allow">
+                <settings>
+                    <url path="hryvinskyi_mcp/server/exposure/change/allow"/>
+                    <type>allow</type>
+                    <label translate="true">Remove from deny-list</label>
+                </settings>
+            </action>
+            <action name="confirm">
+                <settings>
+                    <url path="hryvinskyi_mcp/server/exposure/change/confirm"/>
+                    <type>confirm</type>
+                    <label translate="true">Require confirmation</label>
+                </settings>
+            </action>
+            <action name="unconfirm">
+                <settings>
+                    <url path="hryvinskyi_mcp/server/exposure/change/unconfirm"/>
+                    <type>unconfirm</type>
+                    <label translate="true">Clear confirmation</label>
+                </settings>
+            </action>
+        </massaction>
+        <paging name="listing_paging"/>
+    </listingToolbar>
+    <columns name="hryvinskyi_mcp_ability_columns">
+        <selectionsColumn name="ids" sortOrder="0">
+            <settings>
+                <indexField>name</indexField>
+            </settings>
+        </selectionsColumn>
+        <column name="name" sortOrder="10">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Ability</label>
+                <sorting>asc</sorting>
+            </settings>
+        </column>
+        <column name="title" sortOrder="20">
+            <settings>
+                <label translate="true">What it does</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="source" component="Magento_Ui/js/grid/columns/select" sortOrder="30">
+            <settings>
+                <filter>select</filter>
+                <dataType>select</dataType>
+                <options class="Hryvinskyi\McpServer\Ui\Component\Listing\Options\SourceOptions"/>
+                <label translate="true">Source</label>
+            </settings>
+        </column>
+        <column name="category" component="Magento_Ui/js/grid/columns/select" sortOrder="40">
+            <settings>
+                <filter>select</filter>
+                <dataType>select</dataType>
+                <options class="Hryvinskyi\McpServer\Ui\Component\Listing\Options\CategoryOptions"/>
+                <label translate="true">Module</label>
+            </settings>
+        </column>
+        <column name="access" component="Magento_Ui/js/grid/columns/select" sortOrder="50">
+            <settings>
+                <filter>select</filter>
+                <dataType>select</dataType>
+                <options class="Hryvinskyi\McpServer\Ui\Component\Listing\Options\AccessOptions"/>
+                <label translate="true">Access</label>
+            </settings>
+        </column>
+        <column name="acl" class="Hryvinskyi\McpServer\Ui\Component\Listing\Column\AclColumn" sortOrder="60">
+            <settings>
+                <bodyTmpl>ui/grid/cells/html</bodyTmpl>
+                <label translate="true">Required ACL</label>
+                <sortable>false</sortable>
+            </settings>
+        </column>
+        <!-- The filter compares the stored exposure; the cell shows it with the reason -->
+        <column name="exposure" class="Hryvinskyi\McpServer\Ui\Component\Listing\Column\ExposureColumn"
+                component="Magento_Ui/js/grid/columns/column" sortOrder="70">
+            <settings>
+                <filter>select</filter>
+                <dataType>select</dataType>
+                <options class="Hryvinskyi\McpServer\Ui\Component\Listing\Options\ExposureOptions"/>
+                <bodyTmpl>ui/grid/cells/html</bodyTmpl>
+                <label translate="true">Exposure status</label>
+            </settings>
+        </column>
+        <actionsColumn name="actions" class="Hryvinskyi\McpServer\Ui\Component\Listing\Column\AbilityActions"
+                       sortOrder="80">
+            <settings>
+                <indexField>name</indexField>
+                <label translate="true">Action</label>
+            </settings>
+        </actionsColumn>
+    </columns>
+</listing>

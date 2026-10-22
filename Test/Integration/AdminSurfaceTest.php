@@ -35,6 +35,13 @@ class AdminSurfaceTest extends TestCase
 
         self::assertSame('MCP Server', $server['title']);
         self::assertSame('Use the MCP endpoint', $access['title']);
+        self::assertSame(
+            ['View the MCP Server page', 'Manage ability exposure'],
+            [
+                $this->resource($server['children'], ['Hryvinskyi_McpServer::view'])['title'],
+                $this->resource($server['children'], ['Hryvinskyi_McpServer::manage'])['title'],
+            ]
+        );
     }
 
     public function testTheSettingsResourceSitsUnderConfiguration(): void

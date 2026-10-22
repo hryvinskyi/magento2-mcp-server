@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
+<!--
+    The MCP Server menu. Another module adds its own entries by shipping a layout file of this handle that adds items
+    to the "items" argument of the block below.
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Hryvinskyi_Base::css/styles.css"/>
+    </head>
+    <body>
+        <referenceBlock name="page.title">
+            <block class="Hryvinskyi\Base\Block\Adminhtml\Menu" name="hryvinskyi.mcp.server.menu">
+                <arguments>
+                    <argument name="menu_title" xsi:type="string" translate="true">MCP Server</argument>
+                    <argument name="items" xsi:type="array">
+                        <item name="overview" xsi:type="array">
+                            <item name="label" xsi:type="string" translate="true">Overview &amp; abilities</item>
+                            <item name="route" xsi:type="string">hryvinskyi_mcp/server/index</item>
+                            <item name="resource" xsi:type="string">Hryvinskyi_McpServer::view</item>
+                            <item name="sort_order" xsi:type="number">10</item>
+                        </item>
+                        <item name="configuration" xsi:type="array">
+                            <item name="label" xsi:type="string" translate="true">Configuration</item>
+                            <item name="route" xsi:type="string">adminhtml/system_config/edit</item>
+                            <item name="route_params" xsi:type="array">
+                                <item name="section" xsi:type="string">hryvinskyi_mcp_server</item>
+                            </item>
+                            <item name="resource" xsi:type="string">Hryvinskyi_McpServer::config</item>
+                            <item name="sort_order" xsi:type="number">100</item>
+                        </item>
+                    </argument>
+                </arguments>
+            </block>
+        </referenceBlock>
+    </body>
+</page>

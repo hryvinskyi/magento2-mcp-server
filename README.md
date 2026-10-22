@@ -12,6 +12,9 @@ Lets AI clients that speak the [Model Context Protocol](https://modelcontextprot
 - Shows the client three tools only: `discover_abilities`, `get_ability_info` and `execute_ability`. The client searches the abilities and runs one by name.
 - Blocks abilities that change data until you allow them (read-only mode), keeps abilities that any guest may call off until you allow them, asks for confirmation on abilities you mark, and always refuses a built-in list of dangerous ones.
 - Keeps client sessions in the database.
+- Shows the server on **Stores › Settings › MCP Server**: its state, how a client connects (with a configuration to
+  copy for Claude Desktop and Cursor), and every ability with its exposure and why. You put abilities on the
+  deny-list or ask for confirmation there, one by one or many at once.
 
 ## Requirements
 
@@ -193,7 +196,7 @@ The answer is `{total, abilities: [{name, title, category, access, exposure}]}`,
 
 ### `get_ability_info`
 
-Takes `name`. The answer is `{name, title, description, category, source, access, aclResources, exposure, allowedForYou, inputSchema}`.
+Takes `name`. The answer is `{name, title, description, category, source, access, aclResources, exposure, allowedForYou, inputSchema}`, plus `denialReason` when no client may call the ability: `deny_list`, `read_only_mode`, `anonymous_ability` or another rule's code.
 
 `inputSchema` is a JSON Schema built from Magento's Web API metadata. Data types nest at most six levels in it. `allowedForYou` tells whether the caller's role holds every resource in `aclResources`.
 
@@ -335,7 +338,7 @@ The patterns are `fnmatch` patterns in `etc/di.xml`, in the `patterns` argument 
 
 ### Overrides
 
-A per-ability override is a row in `hryvinskyi_mcp_ability_override`: `ability`, `deny` and `confirm`. Overrides only add restrictions. They cannot lift read-only mode or the built-in deny-list. The `Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface` reads and saves overrides. This version has no admin page to edit them (planned).
+A per-ability override is a row in `hryvinskyi_mcp_ability_override`: `ability`, `deny` and `confirm`. Overrides only add restrictions. They cannot lift read-only mode or the built-in deny-list. The `Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface` reads and saves overrides; the MCP Server page edits them (see *The admin page*).
 
 ### Anonymous abilities
 
@@ -355,7 +358,29 @@ The module adds these ACL resources:
 
 - **Stores > MCP Server** (`Hryvinskyi_McpServer::mcp_server`)
   - **Use the MCP endpoint** (`Hryvinskyi_McpServer::access`): required to call the endpoint
+  - **View the MCP Server page** (`Hryvinskyi_McpServer::view`): the page and its catalog
+  - **Manage ability exposure** (`Hryvinskyi_McpServer::manage`): the deny-list and confirmation changes on the page
 - **MCP Server Settings** (`Hryvinskyi_McpServer::config`): the configuration section
+
+## The admin page
+
+**Stores › Settings › MCP Server** (`Hryvinskyi_McpServer::view`):
+
+- **Connection**: whether the server is on and in read-only mode, the endpoint URL (the default store view's secure base
+  URL followed by `rest/all/V1/mcp`), the stdio command, how to authorize, the protocol version and how many abilities a
+  client may call.
+- **Client configuration**: a JSON configuration per client (Claude Desktop, Cursor) and transport (HTTP, stdio), with
+  the file it goes into. The token and the admin login are placeholders you fill in; the page never prints a secret.
+  Claude Desktop reaches an HTTP server with a Bearer token through the `mcp-remote` bridge (`npx`).
+- **Ability catalog**: every ability with its source, module, access, required ACL resources and exposure. The exposure
+  line says why: put on the deny-list on this page, on the module's built-in deny-list, open to anyone while anonymous
+  abilities are off, blocked by read-only mode, or waiting for a confirmation. Search and filter by source, module,
+  access and exposure.
+- With **Manage ability exposure** (`Hryvinskyi_McpServer::manage`): a row puts its ability on the deny-list or takes it
+  off, and the mass actions **Add to deny-list**, **Remove from deny-list**, **Require confirmation** and **Clear
+  confirmation** change every selected ability (or every ability the search finds). A change applies to the next call.
+  An ability the module itself keeps denied, or that read-only mode blocks, offers no change: its state does not depend
+  on this page.
 
 ## Extending
 
@@ -462,7 +487,6 @@ The module keeps no log of calls. Errors go to the PSR logger.
 
 - The transports are HTTP and stdio. Stdio starts a new process for each message.
 - Abilities come from the Web API (REST routes), the GraphQL schema (as a guest) and modules that register them in `di.xml`.
-- There is no admin page to browse abilities or edit overrides yet. It is planned.
 - The server answers only on the admin store, at `/rest/all/V1/mcp`.
 - It offers tools only: no resources or prompts, and no event stream.
 

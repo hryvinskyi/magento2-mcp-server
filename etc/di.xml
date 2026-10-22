@@ -299,4 +299,34 @@
             <argument name="maxMessageBytes" xsi:type="number">1048576</argument>
         </arguments>
     </type>
+
+    <!-- The values of the ability catalog grid's filters, with the labels people read -->
+    <virtualType name="Hryvinskyi\McpServer\Ui\Component\Listing\Options\SourceOptions" type="Hryvinskyi\McpServer\Ui\Component\Listing\Options\LabelOptions">
+        <arguments>
+            <argument name="labels" xsi:type="array">
+                <item name="webapi" xsi:type="string" translate="true">REST service</item>
+                <item name="graphql" xsi:type="string" translate="true">GraphQL</item>
+                <item name="pool" xsi:type="string" translate="true">Module tool</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="Hryvinskyi\McpServer\Ui\Component\Listing\Options\AccessOptions" type="Hryvinskyi\McpServer\Ui\Component\Listing\Options\LabelOptions">
+        <arguments>
+            <argument name="labels" xsi:type="array">
+                <item name="read" xsi:type="string" translate="true">Reads</item>
+                <item name="write" xsi:type="string" translate="true">Writes</item>
+                <item name="delete" xsi:type="string" translate="true">Deletes</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="Hryvinskyi\McpServer\Ui\Component\Listing\Options\ExposureOptions" type="Hryvinskyi\McpServer\Ui\Component\Listing\Options\LabelOptions">
+        <arguments>
+            <argument name="labels" xsi:type="array">
+                <item name="exposed" xsi:type="string" translate="true">Exposed</item>
+                <item name="needs_confirmation" xsi:type="string" translate="true">Needs confirmation</item>
+                <item name="read_only_blocked" xsi:type="string" translate="true">Blocked: read-only mode</item>
+                <item name="denied" xsi:type="string" translate="true">Denied</item>
+            </argument>
+        </arguments>
+    </virtualType>
 </config>

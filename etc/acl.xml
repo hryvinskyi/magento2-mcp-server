@@ -14,6 +14,8 @@
                 <resource id="Magento_Backend::stores">
                     <resource id="Hryvinskyi_McpServer::mcp_server" title="MCP Server" translate="title" sortOrder="90">
                         <resource id="Hryvinskyi_McpServer::access" title="Use the MCP endpoint" translate="title" sortOrder="10"/>
+                        <resource id="Hryvinskyi_McpServer::view" title="View the MCP Server page" translate="title" sortOrder="20"/>
+                        <resource id="Hryvinskyi_McpServer::manage" title="Manage ability exposure" translate="title" sortOrder="30"/>
                     </resource>
                     <resource id="Magento_Backend::stores_settings">
                         <resource id="Magento_Config::config">

@@ -51,9 +51,35 @@ class GetAbilityInfoTest extends TestCase
                 'exposure' => 'read_only_blocked',
                 'allowedForYou' => false,
                 'inputSchema' => ['type' => 'object', 'properties' => (object) [], 'description' => 'webapi'],
+                'denialReason' => 'read_only_mode',
             ],
             $result['structuredContent']
         );
+    }
+
+    public function testADeniedAbilitySaysWhichRuleDeniesIt(): void
+    {
+        $result = $this->tool(Exposure::Denied, true, 'anonymous_ability')->call(
+            ['name' => 'catalog.product_repository.save'],
+            $this->kit->callContext()
+        );
+
+        self::assertIsArray($result['structuredContent']);
+        self::assertSame(
+            ['denied', 'anonymous_ability'],
+            [$result['structuredContent']['exposure'] ?? null, $result['structuredContent']['denialReason'] ?? null]
+        );
+    }
+
+    public function testAnAbilityAClientMayCallHasNoDenialReason(): void
+    {
+        $result = $this->tool(Exposure::NeedsConfirmation)->call(
+            ['name' => 'catalog.product_repository.save'],
+            $this->kit->callContext()
+        );
+
+        self::assertIsArray($result['structuredContent']);
+        self::assertArrayNotHasKey('denialReason', $result['structuredContent']);
     }
 
     public function testAnUnknownNameIsAToolErrorPointingAtDiscovery(): void
@@ -80,13 +106,17 @@ class GetAbilityInfoTest extends TestCase
     /**
      * @param Exposure $exposure
      * @param bool $allowed
+     * @param string|null $denialReason
      * @return GetAbilityInfo
      */
-    private function tool(Exposure $exposure = Exposure::Exposed, bool $allowed = true): GetAbilityInfo
-    {
+    private function tool(
+        Exposure $exposure = Exposure::Exposed,
+        bool $allowed = true,
+        ?string $denialReason = null
+    ): GetAbilityInfo {
         return new GetAbilityInfo(
             $this->kit->catalog($allowed),
-            new FixedExposurePolicy($exposure),
+            new FixedExposurePolicy($exposure, null, $denialReason),
             $this->kit->argumentReader(),
             $this->kit->toolResults()
         );

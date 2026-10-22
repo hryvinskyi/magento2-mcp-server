@@ -17,8 +17,9 @@ use Magento\Framework\Exception\NoSuchEntityException;
 /**
  * `get_ability_info`: everything a client needs to call one ability, including whether the caller's role may
  *
- * An ability is described whatever the caller's ACL, so a caller learns which resources its role lacks. A name that
- * is no ability is a tool error the model can correct.
+ * An ability is described whatever the caller's ACL, so a caller learns which resources its role lacks. An ability no
+ * client may call says why (`denialReason`: `deny_list`, `read_only_mode`, `anonymous_ability` or another rule's
+ * code); one a client may call has no reason. A name that is no ability is a tool error the model can correct.
  */
 class GetAbilityInfo implements ToolInterface
 {
@@ -52,8 +53,8 @@ class GetAbilityInfo implements ToolInterface
     public function getDescription(): string
     {
         return 'Describe one ability: what it does, the JSON Schema of the arguments execute_ability passes to it, '
-            . 'the ACL resources it needs, whether your role has them (allowedForYou) and its exposure in this store. '
-            . 'Read it before calling execute_ability.';
+            . 'the ACL resources it needs, whether your role has them (allowedForYou) and its exposure in this store, '
+            . 'with the reason calls are refused (denialReason) when they are. Read it before calling execute_ability.';
     }
 
     /**
@@ -100,7 +101,8 @@ class GetAbilityInfo implements ToolInterface
             return $this->toolResults->unknownAbility($name);
         }
 
-        return $this->toolResults->success([
+        $decision = $this->exposurePolicy->decisionOf($ability);
+        $info = [
             'name' => $ability->getName(),
             'title' => $ability->getTitle(),
             'description' => $ability->getDescription(),
@@ -108,9 +110,14 @@ class GetAbilityInfo implements ToolInterface
             'source' => $ability->getSource(),
             'access' => $ability->getAccess()->value,
             'aclResources' => $ability->getAclResources(),
-            'exposure' => $this->exposurePolicy->exposureOf($ability)->value,
+            'exposure' => $decision->getExposure()->value,
             'allowedForYou' => $this->catalog->isAllowed($ability),
             'inputSchema' => $this->catalog->schemaOf($ability),
-        ]);
+        ];
+        if ($decision->getDenialReason() !== '') {
+            $info['denialReason'] = $decision->getDenialReason();
+        }
+
+        return $this->toolResults->success($info);
     }
 }

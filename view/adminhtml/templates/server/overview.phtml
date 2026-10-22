@@ -1,0 +1,185 @@
+<?php
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+
+declare(strict_types=1);
+
+use Hryvinskyi\McpServer\ViewModel\ServerOverview;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
+/**
+ * The MCP Server page above the ability catalog: the server's state and how a client connects
+ *
+ * @var Template $block
+ * @var Escaper $escaper
+ */
+$overview = $block->getData('overview');
+if (!$overview instanceof ServerOverview) {
+    return;
+}
+$configUrl = $overview->configUrl();
+$state = !$overview->isEnabled() ? 'off' : ($overview->isReadOnlyMode() ? 'read-only' : 'on');
+$clients = ['claude' => __('Claude Desktop'), 'cursor' => __('Cursor')];
+$transports = ['http' => __('HTTP endpoint'), 'stdio' => __('Local stdio')];
+?>
+<div class="mcp-server" data-role="mcp-connection-card">
+    <?php if (!$overview->isEnabled()): ?>
+        <div class="message message-warning mcp-server__message">
+            <?= $escaper->escapeHtml(__(
+                'The MCP server is disabled: clients are refused. The catalog below shows what would be exposed.'
+            )) ?>
+            <?php if ($configUrl !== null): ?>
+                <a href="<?= $escaper->escapeUrl($configUrl) ?>">
+                    <?= $escaper->escapeHtml(__('Enable in configuration')) ?>
+                </a>
+            <?php endif; ?>
+        </div>
+    <?php elseif ($overview->isReadOnlyMode()): ?>
+        <div class="message message-notice mcp-server__message">
+            <?= $escaper->escapeHtml(__(
+                'Read-only mode is on: every ability that does not only read is blocked for all clients, '
+                . 'whatever their ACL.'
+            )) ?>
+            <?php if ($configUrl !== null): ?>
+                <a href="<?= $escaper->escapeUrl($configUrl) ?>"><?= $escaper->escapeHtml(__('Change')) ?></a>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <section class="mcp-card" aria-labelledby="mcp-connection-title">
+        <header class="mcp-card__header">
+            <h2 class="mcp-card__title" id="mcp-connection-title"><?= $escaper->escapeHtml(__('Connection')) ?></h2>
+            <span class="mcp-state mcp-state--<?= $escaper->escapeHtmlAttr($state) ?>">
+                <span class="mcp-state__dot" aria-hidden="true"></span>
+                <?= $escaper->escapeHtml($overview->statusText()) ?>
+            </span>
+        </header>
+        <div class="mcp-card__body">
+            <div class="mcp-card__facts">
+                <div class="mcp-field">
+                    <div class="mcp-field__label">
+                        <?= $escaper->escapeHtml(__('Endpoint URL (Streamable HTTP)')) ?>
+                    </div>
+                    <div class="mcp-copy">
+                        <code id="mcp-endpoint"><?= $escaper->escapeHtml($overview->endpointUrl()) ?></code>
+                        <button type="button" class="action-secondary" data-role="mcp-copy"
+                                data-copy-target="mcp-endpoint"><?= $escaper->escapeHtml(__('Copy')) ?></button>
+                    </div>
+                </div>
+                <div class="mcp-field">
+                    <div class="mcp-field__label">
+                        <?= $escaper->escapeHtml(__(
+                            'Local stdio command (runs on the server, acts as one admin user)'
+                        )) ?>
+                    </div>
+                    <div class="mcp-copy">
+                        <code id="mcp-stdio-command"><?= $escaper->escapeHtml($overview->stdioCommand()) ?></code>
+                        <button type="button" class="action-secondary" data-role="mcp-copy"
+                                data-copy-target="mcp-stdio-command"><?= $escaper->escapeHtml(__('Copy')) ?></button>
+                    </div>
+                </div>
+                <div class="mcp-field">
+                    <div class="mcp-field__label"><?= $escaper->escapeHtml(__('How to authorize')) ?></div>
+                    <div class="mcp-auth">
+                        <div class="mcp-auth__option">
+                            <div class="mcp-auth__title">
+                                <?= $escaper->escapeHtml(__('Integration token')) ?>
+                                <span class="mcp-auth__badge"><?= $escaper->escapeHtml(__('recommended')) ?></span>
+                            </div>
+                            <p><?= $escaper->escapeHtml(__(
+                                'Create an integration with the "Use the MCP endpoint" resource plus the resources the '
+                                . 'client may use, and send its access token as a Bearer token. Its resources are '
+                                . 'exactly what the client may do.'
+                            )) ?></p>
+                        </div>
+                        <div class="mcp-auth__option">
+                            <div class="mcp-auth__title"><?= $escaper->escapeHtml(__('Admin token')) ?></div>
+                            <p><?= $escaper->escapeHtml(__(
+                                'Request one with POST /V1/integration/admin/token. Calls run with that admin\'s whole '
+                                . 'role, and the token expires after the admin token lifetime set in the store\'s '
+                                . 'settings.'
+                            )) ?></p>
+                        </div>
+                    </div>
+                </div>
+                <dl class="mcp-facts">
+                    <div>
+                        <dt><?= $escaper->escapeHtml(__('Protocol')) ?></dt>
+                        <dd>MCP <?= $escaper->escapeHtml($overview->protocolVersion()) ?></dd>
+                    </div>
+                    <div>
+                        <dt><?= $escaper->escapeHtml(__('Abilities')) ?></dt>
+                        <dd><?= (int) $overview->abilityCount() ?></dd>
+                    </div>
+                    <div>
+                        <dt><?= $escaper->escapeHtml(__('Exposed')) ?></dt>
+                        <dd><?= (int) $overview->exposedCount() ?></dd>
+                    </div>
+                </dl>
+            </div>
+            <div class="mcp-card__clients">
+                <div class="mcp-field__label"><?= $escaper->escapeHtml(__('Client configuration')) ?></div>
+                <?php foreach (array_keys($clients) as $index => $client): ?>
+                    <input type="radio" class="mcp-switch" name="mcp-client"
+                           id="mcp-client-<?= $escaper->escapeHtmlAttr($client) ?>"
+                           <?= $index === 0 ? 'checked' : '' ?>>
+                <?php endforeach; ?>
+                <?php foreach (array_keys($transports) as $index => $transport): ?>
+                    <input type="radio" class="mcp-switch" name="mcp-transport"
+                           id="mcp-transport-<?= $escaper->escapeHtmlAttr($transport) ?>"
+                           <?= $index === 0 ? 'checked' : '' ?>>
+                <?php endforeach; ?>
+                <div class="mcp-tabs" role="group" aria-label="<?= $escaper->escapeHtmlAttr(__('Client')) ?>">
+                    <?php foreach ($clients as $client => $label): ?>
+                        <label class="mcp-tabs__tab mcp-tabs__tab--<?= $escaper->escapeHtmlAttr($client) ?>"
+                               for="mcp-client-<?= $escaper->escapeHtmlAttr($client) ?>">
+                            <?= $escaper->escapeHtml($label) ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <div class="mcp-transports" role="group"
+                     aria-label="<?= $escaper->escapeHtmlAttr(__('Transport')) ?>">
+                    <?php foreach ($transports as $transport => $label): ?>
+                        <label for="mcp-transport-<?= $escaper->escapeHtmlAttr($transport) ?>"
+                               class="mcp-transports__option
+                                      mcp-transports__option--<?= $escaper->escapeHtmlAttr($transport) ?>">
+                            <?= $escaper->escapeHtml($label) ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <div class="mcp-snippets">
+                    <?php foreach ($overview->snippets() as $snippet): ?>
+                        <?php $codeId = 'mcp-snippet-' . $snippet['id']; ?>
+                        <div class="mcp-snippet" data-snippet="<?= $escaper->escapeHtmlAttr($snippet['id']) ?>">
+                            <div class="mcp-snippet__head">
+                                <span class="mcp-snippet__file"><?= $escaper->escapeHtml($snippet['file']) ?></span>
+                                <button type="button" class="action-secondary" data-role="mcp-copy"
+                                        data-copy-target="<?= $escaper->escapeHtmlAttr($codeId) ?>">
+                                    <?= $escaper->escapeHtml(__('Copy JSON')) ?>
+                                </button>
+                            </div>
+                            <?php $json = $escaper->escapeHtml($snippet['json']); ?>
+                            <pre class="mcp-snippet__code"
+                                 id="<?= $escaper->escapeHtmlAttr($codeId) ?>"><?= /* @noEscape */ $json ?></pre>
+                            <p class="mcp-snippet__hint"><?= $escaper->escapeHtml($snippet['hint']) ?></p>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="mcp-catalog__heading">
+        <h2 class="mcp-card__title"><?= $escaper->escapeHtml(__('Ability catalog')) ?></h2>
+        <span class="mcp-catalog__lead">
+            <?= $escaper->escapeHtml(__('everything an agent can call, with the exposure decision for each')) ?>
+        </span>
+    </div>
+</div>
+<script type="text/x-magento-init">
+    <?= /* @noEscape */ $overview->mountConfig('[data-role="mcp-connection-card"]') ?>
+</script>

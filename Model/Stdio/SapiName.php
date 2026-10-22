@@ -17,10 +17,12 @@ class SapiName
     private const CLI = 'cli';
 
     /**
-     * @param string $name The server API's name; PHP's own when not given
+     * @param string|null $name The server API's name; when not given, the running process's own, read when asked.
+     *     It is never a default value of its own: production's compiled configuration keeps a default as the
+     *     command line that compiled it saw it, so every web request would read as a command line.
      */
     public function __construct(
-        private readonly string $name = PHP_SAPI
+        private readonly ?string $name = null
     ) {
     }
 
@@ -31,6 +33,6 @@ class SapiName
      */
     public function isCommandLine(): bool
     {
-        return $this->name === self::CLI;
+        return ($this->name ?? PHP_SAPI) === self::CLI;
     }
 }

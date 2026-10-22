@@ -59,7 +59,9 @@ class StdioLoop
      * @param DirectoryList $directoryList
      * @param int $messageTimeoutSeconds How long one message process may run
      * @param int $maxLineBytes The longest line accepted, in bytes
-     * @param string $phpBinary The PHP interpreter that runs the message processes; this process's own when not given
+     * @param string|null $phpBinary The PHP interpreter that runs the message processes; when not given, this
+     *     process's own, read when a message is run (a default value of its own would be compiled into production's
+     *     configuration as the interpreter of the machine that compiled it)
      * @throws \InvalidArgumentException When the time limit or the line limit is below 1
      */
     public function __construct(
@@ -72,7 +74,7 @@ class StdioLoop
         private readonly DirectoryList $directoryList,
         private readonly int $messageTimeoutSeconds = 300,
         private readonly int $maxLineBytes = 1048576,
-        private readonly string $phpBinary = PHP_BINARY
+        private readonly ?string $phpBinary = null
     ) {
         if ($messageTimeoutSeconds < 1 || $maxLineBytes < 1) {
             throw new \InvalidArgumentException('The message time limit and the line limit are at least 1.');
@@ -291,7 +293,7 @@ class StdioLoop
     private function command(string $login, string $sessionId): array
     {
         $command = [
-            $this->phpBinary,
+            $this->phpBinary ?? PHP_BINARY,
             '-d',
             'display_errors=stderr',
             $this->directoryList->getRoot() . '/bin/magento',

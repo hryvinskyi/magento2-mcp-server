@@ -2,7 +2,7 @@
     "name": "hryvinskyi/magento2-mcp-server",
     "description": "MCP server for Magento 2: exposes the store's service contracts to AI clients as abilities, behind an exposure policy and the caller's ACL",
     "type": "magento2-module",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "license": "MIT",
     "authors": [
         {

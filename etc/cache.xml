@@ -10,6 +10,6 @@
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Cache/etc/cache.xsd">
     <type name="hryvinskyi_mcp" translate="label,description" instance="Hryvinskyi\McpServer\Model\Cache\Type\McpCache">
         <label>MCP Server</label>
-        <description>Ability input schemas</description>
+        <description>Ability input schemas and the GraphQL schema</description>
     </type>
 </config>

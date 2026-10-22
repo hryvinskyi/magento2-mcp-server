@@ -11,6 +11,7 @@ namespace Hryvinskyi\McpServer\Test\Integration\Model;
 
 use Hryvinskyi\McpServer\Api\ConfigInterface;
 use Hryvinskyi\McpServer\Model\Config;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\TestFramework\Fixture\Config as ConfigFixture;
 use Magento\TestFramework\Helper\Bootstrap;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ConfigTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     public function testAfterInstallTheServerIsOffReadOnlyAndHidesAnonymousAbilities(): void
     {
         $config = $this->config();

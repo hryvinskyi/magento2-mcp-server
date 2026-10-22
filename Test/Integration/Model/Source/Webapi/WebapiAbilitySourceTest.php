@@ -30,6 +30,9 @@ use Hryvinskyi\McpServer\Test\Integration\Fake\FixedServiceLocator;
 use Hryvinskyi\McpServer\Test\Integration\Fake\StrictTypedService;
 use Hryvinskyi\McpServer\Test\Integration\Fake\TypedServiceInterface;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\AdminRoles;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\McpAcl;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Hryvinskyi\McpServer\Test\Unit\Fake\CountingSchemaBuilder;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeWebapiConfig;
 use Magento\Authorization\Model\UserContextInterface;
@@ -54,6 +57,9 @@ use PHPUnit\Framework\TestCase;
 #[AppArea('webapi_rest')]
 class WebapiAbilitySourceTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+    use SwitchesGraphQlSourceOff;
+
     private const GET_LIST = 'catalog.product_repository.get_list';
     private const SAVE = 'catalog.product_repository.save';
     private const GET = 'catalog.product_repository.get';
@@ -70,6 +76,8 @@ class WebapiAbilitySourceTest extends TestCase
         WebapiRoleLocator::class,
         FrameworkAuthorization::class,
         WebapiAuthorization::class,
+        McpAcl::AUTHORIZATION,
+        McpAcl::WEBAPI_AUTHORIZATION,
         WebapiAbilitySource::class,
         AbilityCatalog::class,
     ];

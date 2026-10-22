@@ -11,6 +11,7 @@ namespace Hryvinskyi\McpServer\Test\Integration\Model;
 
 use Hryvinskyi\McpServer\Api\McpEndpointInterface;
 use Hryvinskyi\McpServer\Model\McpEndpointPlaceholder;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\TestFramework\Helper\Bootstrap;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,8 @@ use PHPUnit\Framework\TestCase;
  */
 class McpEndpointPlaceholderTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     public function testRefusesToAnswerAnything(): void
     {
         $endpoint = Bootstrap::getObjectManager()->get(McpEndpointInterface::class);

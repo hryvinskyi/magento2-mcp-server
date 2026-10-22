@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\McpServer\Test\Integration;
 
-use Hryvinskyi\McpServer\Model\Config;
+use Hryvinskyi\McpServer\Model\Source\GraphQl\Config\EndpointUrlValue;
+use Hryvinskyi\McpServer\Model\Source\GraphQl\GraphQlConfig;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Config\Model\Config\Structure;
 use Magento\Config\Model\Config\Structure\Element\Field;
 use Magento\Framework\Acl\AclResource\ProviderInterface;
@@ -23,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 #[AppArea('adminhtml')]
 class AdminSurfaceTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     public function testTheEndpointResourceSitsUnderTheServerUnderStores(): void
     {
         $stores = $this->resource($this->aclTree(), ['Magento_Backend::admin', 'Magento_Backend::stores']);
@@ -51,19 +55,20 @@ class AdminSurfaceTest extends TestCase
         );
     }
 
-    public function testBothSettingsExistAtTheDefaultScopeOnly(): void
+    public function testTheEndpointUrlIsSavedThroughItsCheckAndTheStoreViewIsChosenByCode(): void
     {
         $structure = Bootstrap::getObjectManager()->get(Structure::class);
         self::assertInstanceOf(Structure::class, $structure);
 
-        foreach ([Config::XML_PATH_ENABLED, Config::XML_PATH_READ_ONLY_MODE] as $path) {
-            $field = $structure->getElement($path);
-            self::assertInstanceOf(Field::class, $field, $path);
-            self::assertTrue($field->showInDefault(), $path);
-            self::assertFalse($field->showInWebsite(), $path);
-            self::assertFalse($field->showInStore(), $path);
-            self::assertNotSame('', (string) $field->getComment(), $path);
-        }
+        $endpointUrl = $structure->getElement(GraphQlConfig::XML_PATH_ENDPOINT_URL);
+        self::assertInstanceOf(Field::class, $endpointUrl);
+        self::assertInstanceOf(EndpointUrlValue::class, $endpointUrl->getBackendModel());
+
+        $storeCode = $structure->getElement(GraphQlConfig::XML_PATH_STORE_CODE);
+        self::assertInstanceOf(Field::class, $storeCode);
+        $values = array_column($storeCode->getOptions(), 'value');
+        self::assertSame('', $values[0] ?? null);
+        self::assertContains('default', $values);
     }
 
     /**

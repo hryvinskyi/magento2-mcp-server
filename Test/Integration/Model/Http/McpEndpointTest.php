@@ -14,6 +14,8 @@ use Hryvinskyi\McpServer\Api\Data\AbilityOverrideInterface;
 use Hryvinskyi\McpServer\Model\Config;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\AdminRoles;
 use Hryvinskyi\McpServer\Test\Integration\Http\McpEndpointClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Laminas\Http\Header\HeaderInterface;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\Framework\App\Cache\Manager as CacheManager;
@@ -42,6 +44,9 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class McpEndpointTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+    use SwitchesGraphQlSourceOff;
+
     private const ADMIN = 990201;
     private const OTHER_ADMIN = 990202;
     private const VERSION = '2025-06-18';

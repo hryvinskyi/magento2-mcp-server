@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Hryvinskyi\McpServer\Test\Unit\Model\Exposure\Rule;
 
 use Hryvinskyi\McpServer\Api\Data\AbilityAccess;
+use Hryvinskyi\McpServer\Api\Data\AbilityInterface;
 use Hryvinskyi\McpServer\Api\Data\Exposure;
 use Hryvinskyi\McpServer\Api\Data\InvocationResultInterface;
 use Hryvinskyi\McpServer\Model\Data\Ability;
@@ -115,6 +116,34 @@ class RulesTest extends TestCase
         $rule = new AnonymousAbilityRule(new FakeConfig(true, true, true));
 
         self::assertNull($rule->exposureOf($this->ability(self::NAME, AbilityAccess::Read, ['anonymous'])));
+    }
+
+    /**
+     * @return array<string, array{array<mixed>}>
+     */
+    public static function anonymousOnlyInAnotherShape(): array
+    {
+        return [
+            'repeated' => [['anonymous', 'anonymous']],
+            'under a key of its own' => [['k' => 'anonymous']],
+            'repeated under keys' => [[3 => 'anonymous', 9 => 'anonymous']],
+        ];
+    }
+
+    /**
+     * @param array<mixed> $aclResources
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('anonymousOnlyInAnotherShape')]
+    public function testTheAnonymousRuleComparesTheResourcesAsASet(array $aclResources): void
+    {
+        $ability = $this->createStub(AbilityInterface::class);
+        $ability->method('getAclResources')->willReturn($aclResources);
+
+        self::assertSame(
+            Exposure::Denied,
+            (new AnonymousAbilityRule(new FakeConfig(true, true, false)))->exposureOf($ability)
+        );
+        self::assertNull((new AnonymousAbilityRule(new FakeConfig(true, true, true)))->exposureOf($ability));
     }
 
     public function testTheAnonymousRuleIgnoresAnAbilityThatNeedsMoreThanAnonymous(): void

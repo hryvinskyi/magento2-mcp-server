@@ -41,9 +41,24 @@
                 <item name="jwt_user_tokens" xsi:type="string">jwt_user_token.*</item>
                 <item name="login_as_customer" xsi:type="string">login_as_customer*.*</item>
                 <item name="customer_password_reset" xsi:type="string">customer.account_management.*password*</item>
+                <!-- GraphQL mutations that issue, revoke, exchange or delete a token: sign-in and payment tokens alike -->
+                <item name="graphql_tokens" xsi:type="string">graphql.mutation.*token*</item>
+                <item name="graphql_customer_passwords" xsi:type="string">graphql.mutation.*password*</item>
             </argument>
         </arguments>
     </type>
+
+    <!-- The ACL every MCP check asks: whether the caller may use the endpoint over stdio, and whether it may call an
+         ability. These are the module's own instances, built the first time an MCP check needs them, so they take the
+         role locator of the area loaded by then. Magento builds every console command, and with it whatever their
+         constructors need, before any command runs; a command that loads a web API area afterwards would otherwise
+         keep a shared ACL built for the global area, whose role locator finds no role and denies every caller -->
+    <virtualType name="HryvinskyiMcpServerAuthorization" type="Magento\Framework\Authorization"/>
+    <virtualType name="HryvinskyiMcpServerWebapiAuthorization" type="Magento\Framework\Webapi\Authorization">
+        <arguments>
+            <argument name="authorization" xsi:type="object">HryvinskyiMcpServerAuthorization</argument>
+        </arguments>
+    </virtualType>
 
     <!-- Catalog and invoker: every source's abilities by name, and the checked call of one of them -->
     <preference for="Hryvinskyi\McpServer\Api\AbilityCatalogInterface" type="Hryvinskyi\McpServer\Model\AbilityCatalog"/>
@@ -52,10 +67,22 @@
     <preference for="Hryvinskyi\McpServer\Model\Clock\ClockInterface" type="Hryvinskyi\McpServer\Model\Clock\HrtimeClock"/>
     <type name="Hryvinskyi\McpServer\Model\AbilityCatalog">
         <arguments>
-            <!-- Ability sources keyed by their code; a module adds its own source as an item here -->
+            <!-- Ability sources keyed by their code; a module adds its own source as an item here. The first source
+                 in sortOrder keeps a name that two sources offer, and an item without a sortOrder counts as 0 -->
             <argument name="sources" xsi:type="array">
-                <item name="webapi" xsi:type="object">Hryvinskyi\McpServer\Model\Source\Webapi\WebapiAbilitySource</item>
+                <item name="pool" xsi:type="object" sortOrder="10">Hryvinskyi\McpServer\Model\Source\Pool\PoolAbilitySource</item>
+                <item name="webapi" xsi:type="object" sortOrder="20">Hryvinskyi\McpServer\Model\Source\Webapi\WebapiAbilitySource</item>
+                <item name="graphql" xsi:type="object" sortOrder="30">Hryvinskyi\McpServer\Model\Source\GraphQl\GraphQlAbilitySource</item>
             </argument>
+        </arguments>
+    </type>
+
+    <!-- Pool source: abilities other modules register here -->
+    <type name="Hryvinskyi\McpServer\Model\Source\Pool\PoolAbilitySource">
+        <arguments>
+            <argument name="authorization" xsi:type="object">HryvinskyiMcpServerWebapiAuthorization</argument>
+            <!-- Hryvinskyi\McpServer\Api\PoolAbilityInterface items keyed by the ability's name -->
+            <argument name="abilities" xsi:type="array"/>
         </arguments>
     </type>
     <type name="Hryvinskyi\McpServer\Model\AbilityInvoker">
@@ -78,6 +105,11 @@
     <preference for="Hryvinskyi\McpServer\Model\Service\ServiceLocatorInterface" type="Hryvinskyi\McpServer\Model\Service\ObjectManagerServiceLocator"/>
     <preference for="Hryvinskyi\McpServer\Model\Source\Webapi\Metadata\MetadataReaderInterface" type="Hryvinskyi\McpServer\Model\Source\Webapi\Metadata\ServiceMetadataReader"/>
     <preference for="Hryvinskyi\McpServer\Model\Source\Webapi\Schema\InputSchemaBuilderInterface" type="Hryvinskyi\McpServer\Model\Source\Webapi\Schema\CachedInputSchemaBuilder"/>
+    <type name="Hryvinskyi\McpServer\Model\Source\Webapi\WebapiAbilitySource">
+        <arguments>
+            <argument name="authorization" xsi:type="object">HryvinskyiMcpServerWebapiAuthorization</argument>
+        </arguments>
+    </type>
     <type name="Hryvinskyi\McpServer\Model\Source\Webapi\Schema\CachedInputSchemaBuilder">
         <arguments>
             <argument name="inner" xsi:type="object">Hryvinskyi\McpServer\Model\Source\Webapi\Schema\InputSchemaBuilder</argument>
@@ -101,6 +133,42 @@
             <!-- Service interfaces whose routes are never abilities; the module's own endpoint is one -->
             <argument name="excludedServices" xsi:type="array">
                 <item name="mcpEndpoint" xsi:type="string">Hryvinskyi\McpServer\Api\McpEndpointInterface</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- GraphQL: settings, the guest client of the store's own endpoint, and its schema read by introspection -->
+    <preference for="Hryvinskyi\McpServer\Model\Source\GraphQl\GraphQlConfigInterface" type="Hryvinskyi\McpServer\Model\Source\GraphQl\GraphQlConfig"/>
+    <preference for="Hryvinskyi\McpServer\Model\Source\GraphQl\Client\EndpointInterface" type="Hryvinskyi\McpServer\Model\Source\GraphQl\Client\EndpointUrl"/>
+    <preference for="Hryvinskyi\McpServer\Model\Source\GraphQl\Client\GraphQlClientInterface" type="Hryvinskyi\McpServer\Model\Source\GraphQl\Client\HttpGraphQlClient"/>
+    <preference for="Hryvinskyi\McpServer\Model\Source\GraphQl\Schema\SchemaProviderInterface" type="Hryvinskyi\McpServer\Model\Source\GraphQl\Schema\CachedSchemaProvider"/>
+    <preference for="Hryvinskyi\McpServer\Model\Source\GraphQl\Client\StoredConfigInterface" type="Hryvinskyi\McpServer\Model\Source\GraphQl\Client\StoredSystemConfig"/>
+    <type name="Hryvinskyi\McpServer\Model\Source\GraphQl\Client\StoredSystemConfig">
+        <arguments>
+            <!-- Settings as stored, before Magento resolves their placeholders: app/etc first, then the database -->
+            <argument name="deploymentConfig" xsi:type="object">systemConfigInitialDataProvider</argument>
+            <argument name="databaseConfig" xsi:type="object">Magento\Config\App\Config\Source\RuntimeConfigSource</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Source\GraphQl\Schema\CachedSchemaProvider">
+        <arguments>
+            <argument name="inner" xsi:type="object">Hryvinskyi\McpServer\Model\Source\GraphQl\Schema\IntrospectionSchemaProvider</argument>
+            <argument name="cache" xsi:type="object">Hryvinskyi\McpServer\Model\Cache\Type\McpCache</argument>
+        </arguments>
+    </type>
+
+    <!-- GraphQL source: every root field of the store's GraphQL schema as a guest ability -->
+    <type name="Hryvinskyi\McpServer\Model\Source\GraphQl\GraphQlAbilitySource">
+        <arguments>
+            <argument name="authorization" xsi:type="object">HryvinskyiMcpServerWebapiAuthorization</argument>
+            <!-- Root fields never offered, as "<operation> <field>": these query fields answer only a signed-in customer, so a guest always gets an authorization error from them -->
+            <argument name="excludedFields" xsi:type="array">
+                <item name="customer" xsi:type="string">query customer</item>
+                <item name="customerCart" xsi:type="string">query customerCart</item>
+                <item name="customerDownloadableProducts" xsi:type="string">query customerDownloadableProducts</item>
+                <item name="customerOrders" xsi:type="string">query customerOrders</item>
+                <item name="customerPaymentTokens" xsi:type="string">query customerPaymentTokens</item>
+                <item name="wishlist" xsi:type="string">query wishlist</item>
             </argument>
         </arguments>
     </type>
@@ -180,6 +248,55 @@
                 <item name="POST" xsi:type="object">Hryvinskyi\McpServer\Model\Http\Verb\PostMessages</item>
                 <item name="DELETE" xsi:type="object">Hryvinskyi\McpServer\Model\Http\Verb\EndSession</item>
             </argument>
+        </arguments>
+    </type>
+
+    <!-- stdio transport: a serving loop that starts one bin/magento process per message, and that process's command -->
+    <type name="Magento\Framework\Console\CommandListInterface">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="hryvinskyiMcpServe" xsi:type="object">Hryvinskyi\McpServer\Console\Command\ServeCommand</item>
+                <item name="hryvinskyiMcpStdioMessage" xsi:type="object">Hryvinskyi\McpServer\Console\Command\StdioMessageCommand</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Console\Command\ServeCommand">
+        <arguments>
+            <!-- Lazy, so that other commands never build the loop -->
+            <argument name="loop" xsi:type="object">Hryvinskyi\McpServer\Model\Stdio\StdioLoop\Proxy</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Console\Command\StdioMessageCommand">
+        <arguments>
+            <!-- Lazy, so that the handler and the services it needs are built after the Web API area is loaded -->
+            <argument name="handler" xsi:type="object">Hryvinskyi\McpServer\Model\Stdio\MessageHandler\Proxy</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Stdio\CallerAdmission">
+        <arguments>
+            <argument name="authorization" xsi:type="object">HryvinskyiMcpServerAuthorization</argument>
+        </arguments>
+    </type>
+    <preference for="Hryvinskyi\McpServer\Model\Stdio\ProcessRunnerInterface" type="Hryvinskyi\McpServer\Model\Stdio\SymfonyProcessRunner"/>
+    <preference for="Hryvinskyi\McpServer\Model\Stdio\AdminAccountsInterface" type="Hryvinskyi\McpServer\Model\Stdio\AdminUserAccounts"/>
+    <preference for="Hryvinskyi\McpServer\Model\Transport\ChannelSecurityInterface" type="Hryvinskyi\McpServer\Model\Transport\ChannelSecurity"/>
+    <type name="Hryvinskyi\McpServer\Model\Stdio\StdioStreams">
+        <arguments>
+            <argument name="driver" xsi:type="object">Magento\Framework\Filesystem\Driver\File</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Stdio\StdioLoop">
+        <arguments>
+            <!-- How long one message process may run, in seconds -->
+            <argument name="messageTimeoutSeconds" xsi:type="number">300</argument>
+            <!-- The longest line read from the client, in bytes -->
+            <argument name="maxLineBytes" xsi:type="number">1048576</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Stdio\MessageHandler">
+        <arguments>
+            <!-- The longest message a message process reads, in bytes -->
+            <argument name="maxMessageBytes" xsi:type="number">1048576</argument>
         </arguments>
     </type>
 </config>

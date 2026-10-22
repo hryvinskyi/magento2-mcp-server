@@ -15,6 +15,12 @@
                 <read_only_mode>1</read_only_mode>
                 <expose_anonymous_abilities>0</expose_anonymous_abilities>
             </general>
+            <graphql>
+                <enabled>1</enabled>
+                <expose_mutations>0</expose_mutations>
+                <endpoint_url/>
+                <store_code/>
+            </graphql>
         </hryvinskyi_mcp_server>
     </default>
 </config>

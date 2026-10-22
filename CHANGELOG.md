@@ -5,6 +5,62 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-22
+
+### Added
+- The stdio transport: `bin/magento hryvinskyi:mcp:serve --admin-user=<login>` serves MCP over standard
+  input and output for a local client, as that admin user. It reads one JSON-RPC message or batch per line.
+  It exits 0 at the end of the input. It exits 1, with a message on standard error, when the option is
+  missing, when the admin is unknown, inactive, locked or past its expiry date, when the role lacks **Use the
+  MCP endpoint**, when the server is disabled, when another area is already set, and when the admin loses
+  access while it runs. A line over 1 MB is answered with `-32600`.
+- Each stdio message runs in a new `bin/magento` process (the hidden, internal command
+  `hryvinskyi:mcp:stdio-message`), so settings, admin accounts and roles are read again for every message.
+  The cost is about 0.4 s per message on a development machine. One process also runs before the first
+  line is read, and any failure there stops `serve` with exit 1. A message process may run for 300 seconds
+  (`messageTimeoutSeconds` of `Model\Stdio\StdioLoop`).
+- A stdio session counts toward the admin's 20 live sessions, shared with HTTP. If a client sends
+  `initialize` again, stdio switches to the new session. A session that expired, or that the cap ended, is
+  opened again once with the client's own `initialize`, and the message is sent again.
+- A stdio message whose process fails is answered with `-32603` for each of its requests, with their ids;
+  a notification gets no answer.
+- Web API routes that `webapi.xml` marks as secure run over stdio, because a local pipe counts as a secure
+  channel (`Model\Transport\ChannelSecurityInterface`).
+- GraphQL abilities: each query field of the store's GraphQL schema is an ability named
+  `graphql.query.<field>`, in the category `GraphQL`, with `read` access. They run as a guest, through the
+  store's own `/graphql`, in the store view that **Store View** names. The schema is read by introspection and
+  cached in the **MCP Server** cache type.
+- GraphQL mutation fields as abilities named `graphql.mutation.<field>`, with `write` access, only while
+  **Expose GraphQL Mutations** is Yes.
+- The `selection` argument of a GraphQL ability, the selection set of the result. It is exactly one group in
+  braces, with no `#` comments.
+- The ability `graphql.schema.describe_type`, which describes one type of the GraphQL schema.
+- The settings group **GraphQL** with **Enable GraphQL Abilities** (default Yes), **Expose GraphQL Mutations**
+  (default No), **GraphQL Endpoint URL** (an absolute http(s) URL ending in `/graphql`; empty means the store
+  view's secure base URL followed by `graphql`) and **Store View** (empty means the default store view).
+- Every GraphQL ability is denied until **Expose Anonymous Abilities** is Yes. The query fields `customer`,
+  `customerCart`, `customerDownloadableProducts`, `customerOrders`, `customerPaymentTokens` and `wishlist` are
+  never listed, because a guest always gets a 401 from them (`excludedFields` of
+  `Model\Source\GraphQl\GraphQlAbilitySource`).
+- Two patterns on the built-in deny-list: `graphql.mutation.*token*` and `graphql.mutation.*password*`.
+- Registered abilities: a module implements `Api/PoolAbilityInterface` and adds the class to the `abilities`
+  argument of `Model\Source\Pool\PoolAbilitySource` in `di.xml`, keyed by the ability's name. An item with
+  no ACL resource, or with a name or title that breaks the rules, is skipped with a warning.
+- A data patch that enables the **MCP Server** cache type once. `setup:upgrade` leaves a newly added cache
+  type disabled.
+- Requirements: `magento/module-user`, `magento/module-security`, `symfony/console` and `symfony/process`.
+
+### Changed
+- Ability sources are sorted by their `sortOrder` in the `sources` argument of `Model\AbilityCatalog`: `pool` is
+  10, `webapi` is 20 and `graphql` is 30. A source that has no `sortOrder` sorts first, and when two sources
+  offer one name, the first keeps it. A registered ability wins over a Web API ability of the same name.
+- The `category` argument of `discover_abilities` also takes `GraphQL`.
+- **Expose Anonymous Abilities** also lets GraphQL abilities run, since they all run as a guest. Set **Enable
+  GraphQL Abilities** to No to keep 1.0.0's exposure.
+
+### Not in this version
+- An admin page to browse abilities and edit overrides is planned.
+
 ## [1.0.0] - 2026-10-21
 
 ### Added

@@ -28,6 +28,8 @@ use Hryvinskyi\McpServer\Model\Config;
 use Hryvinskyi\McpServer\Model\Data\InvocationResult;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeAbilitySource;
 use Hryvinskyi\McpServer\Test\Unit\Fake\RecordingListener;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\TestFramework\Fixture\Config as ConfigFixture;
 use Magento\TestFramework\Fixture\DbIsolation;
@@ -41,6 +43,9 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class AbilityInvokerTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+    use SwitchesGraphQlSourceOff;
+
     private const READ = 'catalog.product_repository.get_list';
     private const WRITE = 'catalog.product_repository.save';
     private const CUSTOMER_SAVE = 'customer.customer_repository.save';

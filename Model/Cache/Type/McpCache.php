@@ -28,8 +28,8 @@ class McpCache extends TagScope
     public const CACHE_TAG = 'HRYVINSKYI_MCP';
 
     /**
-     * Tag of every entry derived from Magento's Web API metadata: the input schemas, and the memory of a metadata
-     * build that failed
+     * Tag of every entry derived from a schema: the input schemas built from Magento's Web API metadata, the memory
+     * of a metadata build that failed, the store's GraphQL schema, and the memory of a GraphQL schema read that failed
      */
     public const SCHEMA_TAG = 'HRYVINSKYI_MCP_SCHEMA';
 

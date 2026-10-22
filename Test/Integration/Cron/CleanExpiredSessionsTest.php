@@ -12,6 +12,7 @@ namespace Hryvinskyi\McpServer\Test\Integration\Cron;
 use Hryvinskyi\McpServer\Cron\CleanExpiredSessions;
 use Hryvinskyi\McpServer\Model\Confirmation\DbConfirmationStore;
 use Hryvinskyi\McpServer\Model\Session\DbSessionStore;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\TestFramework\Fixture\DbIsolation;
@@ -25,6 +26,8 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class CleanExpiredSessionsTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     public function testExpiredSessionsAreRemovedInBatchesAndLiveOnesKept(): void
     {
         $now = time();

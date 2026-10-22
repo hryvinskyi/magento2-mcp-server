@@ -17,6 +17,8 @@ use Hryvinskyi\McpServer\Model\AbilityCatalog;
 use Hryvinskyi\McpServer\Model\Catalog\AbilitySourceResolverInterface;
 use Hryvinskyi\McpServer\Model\Data\AbilityPage;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeAbilitySource;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\TestFramework\Helper\Bootstrap;
 use PHPUnit\Framework\TestCase;
@@ -26,6 +28,9 @@ use PHPUnit\Framework\TestCase;
  */
 class AbilityCatalogTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+    use SwitchesGraphQlSourceOff;
+
     public function testThePreferenceIsTheCatalogAndTheResolverIsTheSameInstance(): void
     {
         $catalog = Bootstrap::getObjectManager()->get(AbilityCatalogInterface::class);

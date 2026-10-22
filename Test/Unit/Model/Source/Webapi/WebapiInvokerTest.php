@@ -13,6 +13,7 @@ use Hryvinskyi\McpServer\Api\Data\AbilityAccess;
 use Hryvinskyi\McpServer\Model\Data\Ability;
 use Hryvinskyi\McpServer\Model\Source\Webapi\Route;
 use Hryvinskyi\McpServer\Model\Source\Webapi\WebapiInvoker;
+use Hryvinskyi\McpServer\Model\Transport\ChannelSecurity;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeMetadataReader;
 use Hryvinskyi\McpServer\Test\Unit\Fake\RecordingLogger;
 use Hryvinskyi\McpServer\Test\Unit\Fake\RecordingServiceLocator;
@@ -26,8 +27,9 @@ use Magento\Webapi\Controller\Rest\ParamsOverrider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Two steps of a Web API call that come before the service: a secure route needs HTTPS, and the record id of an
- * update route moves from the arguments into the record, as REST moves the URL's value
+ * Two steps of a Web API call that come before the service: a secure route needs a secure channel (HTTPS, or the
+ * local pipe of the stdio transport), and the record id of an update route moves from the arguments into the record,
+ * as REST moves the URL's value
  */
 class WebapiInvokerTest extends TestCase
 {
@@ -106,6 +108,18 @@ class WebapiInvokerTest extends TestCase
         self::assertSame([['name' => 'x']], $output);
     }
 
+    public function testASecureRouteRunsOverPlainHttpOnceTheChannelIsMarkedALocalPipe(): void
+    {
+        $channel = new ChannelSecurity($this->httpRequest(false));
+        $channel->markLocalChannel();
+
+        $output = $this->invoker($this->httpRequest(false), $channel)
+            ->invoke($this->ability(), $this->route('POST', true), ['entity' => ['name' => 'x']]);
+
+        self::assertSame([['name' => 'x']], $output);
+        self::assertSame([self::SERVICE], $this->locator->asked);
+    }
+
     public function testTheRecordIdOfAnUpdateRouteMovesIntoTheRecord(): void
     {
         $this->invoker($this->httpRequest(false))->invoke(
@@ -137,10 +151,11 @@ class WebapiInvokerTest extends TestCase
     }
 
     /**
-     * @param RequestInterface $request
+     * @param RequestInterface $request The request the channel is judged by, unless a channel is given
+     * @param ChannelSecurity|null $channel
      * @return WebapiInvoker
      */
-    private function invoker(RequestInterface $request): WebapiInvoker
+    private function invoker(RequestInterface $request, ?ChannelSecurity $channel = null): WebapiInvoker
     {
         $overrider = $this->createStub(ParamsOverrider::class);
         $overrider->method('override')->willReturnArgument(0);
@@ -168,7 +183,7 @@ class WebapiInvokerTest extends TestCase
             $this->locator,
             $this->createStub(InputArraySizeLimitValue::class),
             new RecordingLogger(),
-            $request,
+            $channel ?? new ChannelSecurity($request),
             new FakeMetadataReader([self::SERVICE . '::save' => [
                 'documentation' => '',
                 'parameters' => [

@@ -29,6 +29,7 @@ use Hryvinskyi\McpServer\Model\Data\Client;
 use Hryvinskyi\McpServer\Model\Data\ExposureDecision;
 use Hryvinskyi\McpServer\Model\Data\Invocation;
 use Hryvinskyi\McpServer\Model\Data\InvocationResult;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\TestFramework\Helper\Bootstrap;
 use PHPUnit\Framework\TestCase;
@@ -38,6 +39,8 @@ use PHPUnit\Framework\TestCase;
  */
 class FactoriesTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     public function testAnAbilityComesFromItsFactory(): void
     {
         $ability = $this->ability();

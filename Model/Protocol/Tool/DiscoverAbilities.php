@@ -77,7 +77,8 @@ class DiscoverAbilities implements ToolInterface
                 ],
                 'category' => [
                     'type' => 'string',
-                    'description' => 'Only abilities of this category, a Magento module name such as Magento_Catalog.',
+                    'description' => 'Only abilities of this category: a Magento module name such as '
+                        . 'Magento_Catalog, or GraphQL.',
                 ],
                 'access' => [
                     'type' => 'string',

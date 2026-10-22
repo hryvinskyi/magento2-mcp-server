@@ -14,6 +14,7 @@ use Hryvinskyi\McpServer\Api\Data\AbilityOverrideInterface;
 use Hryvinskyi\McpServer\Model\AbilityOverride;
 use Hryvinskyi\McpServer\Model\AbilityOverrideRepository;
 use Hryvinskyi\McpServer\Model\ResourceModel\AbilityOverride as AbilityOverrideResource;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
 use Magento\Framework\Exception\CouldNotSaveException;
@@ -27,6 +28,8 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class AbilityOverrideRepositoryTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     private const NAME = 'catalog.product_repository.save';
     private const OTHER_NAME = 'catalog.product_repository.delete_by_id';
 

@@ -22,6 +22,9 @@ use Hryvinskyi\McpServer\Api\ReasonedExposureRuleInterface;
  * REST API it is guarded per route, by CAPTCHA and rate limits; called through MCP those guards ran once, for the MCP
  * request, never for the ability. So these abilities stay denied, with the reason `anonymous_ability`, until the
  * setting that exposes them is switched on.
+ *
+ * The resources are compared as a set: a list that repeats `anonymous`, or keeps it under a key of its own, still
+ * names nothing but `anonymous`, and Magento's guest authorization allows it all the same.
  */
 class AnonymousAbilityRule implements ReasonedExposureRuleInterface
 {
@@ -40,7 +43,7 @@ class AnonymousAbilityRule implements ReasonedExposureRuleInterface
      */
     public function exposureOf(AbilityInterface $ability): ?Exposure
     {
-        if ($ability->getAclResources() !== [self::ANONYMOUS_RESOURCE]) {
+        if (array_values(array_unique($ability->getAclResources())) !== [self::ANONYMOUS_RESOURCE]) {
             return null;
         }
 

@@ -1,11 +1,14 @@
 # MCP Server for Adobe Commerce (Magento 2)
 
-Lets AI clients that speak the [Model Context Protocol](https://modelcontextprotocol.io) work with your store. The client finds and runs the operations of the store's Web API, as the admin user or integration it authenticates with.
+Lets AI clients that speak the [Model Context Protocol](https://modelcontextprotocol.io) work with your store. The client finds and runs the operations of the store's Web API and GraphQL schema, as the admin user or integration it authenticates with.
 
 ## What it does
 
 - Serves MCP over HTTP at `POST /rest/all/V1/mcp`, on Magento's REST stack. Magento authenticates the caller and checks the ACL.
+- Serves MCP over standard input and output (stdio) for a client that runs on the same machine as the store, with `bin/magento hryvinskyi:mcp:serve`. The client acts as an admin user you name.
 - Turns every service method that a `webapi.xml` route calls into an *ability*, for example `catalog.product_repository.get_list`. A store has about 600 of them.
+- Turns every query field of the store's GraphQL schema into an ability that runs as a guest. Mutation fields are an option.
+- Lets another module register its own abilities in `di.xml`.
 - Shows the client three tools only: `discover_abilities`, `get_ability_info` and `execute_ability`. The client searches the abilities and runs one by name.
 - Blocks abilities that change data until you allow them (read-only mode), keeps abilities that any guest may call off until you allow them, asks for confirmation on abilities you mark, and always refuses a built-in list of dangerous ones.
 - Keeps client sessions in the database.
@@ -39,15 +42,28 @@ bin/magento cache:flush
 
 ## Configuration
 
-Go to **Stores > Configuration > MCP Server > MCP Server**, group **General**. All options are set in the default scope only.
+Go to **Stores > Configuration > MCP Server > MCP Server**. All options are set in the default scope only.
+
+Group **General**:
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | Enable MCP Server | While it is off, the endpoint refuses every message | No |
 | Read-only Mode | Clients may only call abilities that read data. Abilities that write or delete are blocked | Yes |
-| Expose Anonymous Abilities | Lets clients call abilities that any guest may call through the REST API, such as account creation or guest checkout. Through MCP, the CAPTCHA and rate limits set for each REST route do not apply, so these abilities are denied while this is No | No |
+| Expose Anonymous Abilities | Lets clients call abilities that any guest may call through the REST API, such as account creation or guest checkout. Through MCP, the CAPTCHA and rate limits set for each REST route do not apply, so these abilities are denied while this is No. Yes also lets every GraphQL ability run, because they all run as a guest. To keep them off, set **Enable GraphQL Abilities** to No | No |
 
 The server is off after install. Turning it on is your step.
+
+Group **GraphQL**:
+
+| Option | Path | Description | Default |
+|--------|------|-------------|---------|
+| Enable GraphQL Abilities | `hryvinskyi_mcp_server/graphql/enabled` | Offers the query fields of the store's GraphQL schema as abilities. They are still denied until **Expose Anonymous Abilities** is Yes | Yes |
+| Expose GraphQL Mutations | `hryvinskyi_mcp_server/graphql/expose_mutations` | Also offers the mutation fields as abilities. Mutations write data, so read-only mode blocks them | No |
+| GraphQL Endpoint URL | `hryvinskyi_mcp_server/graphql/endpoint_url` | An absolute http(s) URL ending in `/graphql`, for a server that cannot reach its own public host name. Empty means the secure base URL of the store view below, followed by `graphql`. That default is refused, and no GraphQL ability is listed, when the stored base URL is a placeholder such as `{{base_url}}`: Magento fills it in from the host of each request. Set this URL then | Empty |
+| Store View | `hryvinskyi_mcp_server/graphql/store_code` | The store view the GraphQL abilities run in, sent as the `Store` header. Empty means the default store view | Empty |
+
+See *GraphQL abilities* for what these settings do.
 
 ## Calling the endpoint
 
@@ -101,7 +117,7 @@ The URL is `https://<host>/rest/all/V1/mcp`.
 - A session is stored in the `hryvinskyi_mcp_session` table. It belongs to the caller who opened it. Any other caller who sends its id gets 404.
 - A session expires 24 hours after its last use.
 - The cron job `hryvinskyi_mcp_session_cleanup` runs every hour and removes expired sessions.
-- A caller holds at most 20 live sessions. When the caller opens one more, the sessions that were used least recently are ended. A client that gets HTTP 404 for its session opens a new one with `initialize`.
+- A caller holds at most 20 live sessions, stdio sessions included. When the caller opens one more, the sessions that were used least recently are ended. A client that gets HTTP 404 for its session opens a new one with `initialize`.
 - Flushing caches does not end sessions.
 
 ### Limits
@@ -115,6 +131,48 @@ The URL is `https://<host>/rest/all/V1/mcp`.
 
 A developer can change the body size, the batch size and the session count in `etc/di.xml`: the arguments `maxBodyBytes` of `Hryvinskyi\McpServer\Model\Protocol\Server`, `maxBatchSize` of `Hryvinskyi\McpServer\Model\Protocol\MessageParser` and `maxSessionsPerCaller` of `Hryvinskyi\McpServer\Model\Session\DbSessionStore`. The nesting depth is fixed.
 
+## Using stdio
+
+For a client that runs on the same machine as the store, and starts a command instead of calling a URL. The command acts as an admin user. It needs `Magento_User` and `Magento_Security`, which Magento ships with.
+
+```bash
+bin/magento hryvinskyi:mcp:serve --admin-user=<login>
+```
+
+- The admin user's role needs **Use the MCP endpoint**, plus whatever resources the abilities it will run need. The server must be enabled.
+- The command reads one JSON-RPC message, or one batch, from each line of standard input. It writes each answer as one line to standard output. Everything else goes to standard error. A line over 1 MB gets the error `-32600` and the command goes on.
+- It runs until its input ends, then exits with 0.
+- It exits with 1 and a message on standard error when the `--admin-user` option is missing, when the admin does not exist, is inactive, is locked or is past the expiry date set on the account, when the role lacks **Use the MCP endpoint**, when the server is disabled, or when the process already runs in another area. It also exits with 1 when the admin loses access while it runs: the next message stops it.
+- Before it reads any input, it runs one check message. If that fails for any reason, the command stops with exit 1.
+- The command does not check a password or a token. See *Privacy and security* for what that means.
+
+### Client configuration
+
+Pass `display_errors=stderr` to PHP, so that a PHP error never lands in the answers.
+
+**Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{"mcpServers": {"magento": {"command": "php", "args": ["-d", "display_errors=stderr", "<path>/bin/magento", "hryvinskyi:mcp:serve", "--admin-user", "<login>"]}}}
+```
+
+With DDEV, the same command runs in the container. If the client does not start in the project directory, add `"-p", "<project>"` after `"exec"`:
+
+```json
+{"mcpServers": {"magento": {"command": "ddev", "args": ["exec", "php", "-d", "display_errors=stderr", "bin/magento", "hryvinskyi:mcp:serve", "--admin-user", "<login>"]}}}
+```
+
+### How it runs
+
+- Every line starts a new `bin/magento` process, which handles that one message and ends. So a changed setting, a changed admin account or role, or a changed override reaches the next message with no restart.
+- The cost is the start of `bin/magento` for each message: about 0.4 s per message on a development machine. A client that starts a session (`initialize`, `notifications/initialized`, `tools/list`) waits a couple of seconds in total.
+- A message process may run for 300 seconds. After that it is stopped, each request on the line gets the error `-32603` with its own `id`, and the command goes on. A notification gets no answer. The same happens when a message process fails in any other way, for example when the database connection drops. The limit is the `messageTimeoutSeconds` argument of `Hryvinskyi\McpServer\Model\Stdio\StdioLoop`.
+- The command `hryvinskyi:mcp:stdio-message` is the message process. It is hidden and internal. Do not call it.
+- The session works as over HTTP, and it counts toward the admin's 20 live sessions. When the input ends, the command ends its session.
+- If the client sends `initialize` again, the command switches to the new session. The earlier one stays until it expires (24 hours without use) or the cap of 20 removes it.
+- When the session has expired (24 hours without use) or the cap of 20 has ended it, the command opens a new one by sending the client's own `initialize` again, and `notifications/initialized` if the client sent it. Then it sends the message again, once. If that fails, the client gets the session's not-found error. Restart the client then.
+- Web API routes that `webapi.xml` marks as secure run over stdio, because a local pipe counts as a secure channel.
+
 ## The three tools
 
 Abilities are not listed as tools. A client finds one, reads its arguments, then runs it.
@@ -126,7 +184,7 @@ Searches the abilities. All arguments are optional.
 | Argument | Description |
 |----------|-------------|
 | `query` | Words to find in the ability name, title or category. The search is case-insensitive. Empty lists every ability |
-| `category` | Only abilities of this Magento module, for example `Magento_Catalog` |
+| `category` | Only abilities of this category: a Magento module name, for example `Magento_Catalog`, or `GraphQL` |
 | `access` | `read`, `write` or `delete` |
 | `limit` | 1 to 100. Default 25 |
 | `offset` | 0 or more. Default 0 |
@@ -189,7 +247,9 @@ JSON-RPC errors that answer a parsed request come with HTTP 200 and the request'
 
 ## Abilities
 
-An ability is one service method that a `webapi.xml` route calls.
+Abilities come from three sources: the modules that register them in `di.xml` (source `pool`), the Web API (`webapi`) and the GraphQL schema (`graphql`). `get_ability_info` names the source. This section is about the Web API abilities; the others have their own sections below.
+
+A Web API ability is one service method that a `webapi.xml` route calls.
 
 - The name is `<module>.<service>.<method>`, in snake case. The module part of a Magento module is its name (`catalog`). Another vendor's module has its vendor in front (`acme_gallery`).
 - When several routes call one method, the route with the fewest forced parameters is used.
@@ -203,6 +263,42 @@ An ability is one service method that a `webapi.xml` route calls.
 - If a route cannot become an ability (its name is invalid or taken), it is skipped and a warning goes to the log. The other abilities are not affected.
 
 The input schemas are cached in the **MCP Server** cache type. Cleaning or flushing that cache type rebuilds them.
+
+## GraphQL abilities
+
+Every query field of the store's GraphQL schema is an ability. The module reads the schema by introspection, from the store's own `/graphql`.
+
+- The name is `graphql.query.<field in snake case>`, for example `graphql.query.products`. A mutation is `graphql.mutation.<field>`, for example `graphql.mutation.create_empty_cart`.
+- The category is `GraphQL`. A query is `read` access. A mutation is `write` access, so read-only mode blocks it.
+- `graphql.schema.describe_type` is a helper. It takes `name` and describes one type of the schema: its fields with their arguments, its input fields and its enum values. Use it to write a `selection` or an input object.
+
+### Who runs them
+
+- Every GraphQL ability runs as a guest, whoever the MCP caller is. The server sends the call to its own `/graphql` with no `Authorization` header and no cookies.
+- It runs in the store view that **Store View** names, sent as the `Store` header. With no value, it is the default store view.
+- Their only ACL resource is `anonymous`. So they follow the rule for anonymous abilities: every GraphQL ability is denied until **Expose Anonymous Abilities** is Yes.
+- Mutations are also listed only when **Expose GraphQL Mutations** is Yes.
+- The mutations whose name holds "token", such as those that issue or revoke a customer token or delete a stored payment token, and those that set or reset a password, are always denied. They match the patterns `graphql.mutation.*token*` and `graphql.mutation.*password*` of the built-in deny-list.
+- Six query fields answer only a signed-in customer, so a guest always gets a 401 from them. They are not listed: `customer`, `customerCart`, `customerDownloadableProducts`, `customerOrders`, `customerPaymentTokens` and `wishlist`. The `excludedFields` argument of `Hryvinskyi\McpServer\Model\Source\GraphQl\GraphQlAbilitySource` in `di.xml` holds the list.
+
+### Calling one
+
+`inputSchema` has one property for each argument of the field. A field whose result is an object, an interface, a union or a list of them also takes a required `selection`. It is the selection set of the result:
+
+```json
+{"name": "graphql.query.products", "arguments": {"search": "bag", "selection": "{ items { sku name } }"}}
+```
+
+- `selection` is exactly one group in braces. Nothing may follow its closing brace, and `#` comments are refused. Fields, aliases, arguments, fragments and directives inside the group are checked by the GraphQL server.
+- A field whose result is a scalar or an enum value takes no `selection`.
+
+### Setup
+
+- The server must be able to call its own `/graphql`. The default URL is the secure base URL of the store view, followed by `graphql`. If that host name does not resolve from the server itself, set **GraphQL Endpoint URL**. It accepts only an absolute http(s) URL ending in `/graphql`.
+- Introspection must be allowed. If `app/etc/env.php` sets `graphql/disable_introspection`, the schema cannot be read, and no GraphQL ability is listed.
+- Each GraphQL call holds one PHP-FPM worker, and the loopback request is served by another one. Keep `pm.max_children` above the number of MCP clients that may call at the same time. The loopback request times out after 30 seconds.
+- The schema is cached in the **MCP Server** cache type. Clean it after you install a module that changes the GraphQL schema: `bin/magento cache:clean hryvinskyi_mcp`. A failed read of the schema is remembered for five minutes.
+- The module enables the **MCP Server** cache type once, on the first `setup:upgrade` that installs version 1.1.0, because `setup:upgrade` leaves a newly added cache type disabled. While the type is disabled, every MCP request and every stdio message reads the whole GraphQL schema again, several MB through the loopback. Keep it enabled, or set **Enable GraphQL Abilities** to No. To turn it back on: `bin/magento cache:enable hryvinskyi_mcp`.
 
 ## Exposure
 
@@ -232,6 +328,8 @@ These abilities are always denied, whatever the overrides say:
 | `two_factor_auth.*` | Two-factor authentication, including its token endpoints |
 | `login_as_customer*.*` | Login as customer |
 | `customer.account_management.*password*` | Customer password reset and change |
+| `graphql.mutation.*token*` | GraphQL mutations that issue, revoke, exchange or delete a token, such as a customer token or a stored payment token |
+| `graphql.mutation.*password*` | GraphQL mutations that set, change or reset a password |
 
 The patterns are `fnmatch` patterns in `etc/di.xml`, in the `patterns` argument of `Hryvinskyi\McpServer\Model\Exposure\Rule\BuiltInDenyListRule`. Another module can add patterns there. The list cannot be changed in the configuration.
 
@@ -241,7 +339,7 @@ A per-ability override is a row in `hryvinskyi_mcp_ability_override`: `ability`,
 
 ### Anonymous abilities
 
-An ability whose only ACL resource is `anonymous` can be called by a guest through REST. Through MCP, the CAPTCHA and rate limits of each REST route do not apply. So these abilities are `denied` with the reason `anonymous_ability`, until you set **Expose Anonymous Abilities** to Yes. Turn it on only when you accept that.
+An ability whose only ACL resource is `anonymous` can be called by a guest through REST. Through MCP, the CAPTCHA and rate limits of each REST route do not apply. So these abilities are `denied` with the reason `anonymous_ability`, until you set **Expose Anonymous Abilities** to Yes. Turn it on only when you accept that. Every GraphQL ability is one of them.
 
 ### Argument guards
 
@@ -261,11 +359,93 @@ The module adds these ACL resources:
 
 ## Extending
 
-- A source of abilities implements `Hryvinskyi\McpServer\Api\AbilitySourceInterface`. Add it to the `sources` argument of `Hryvinskyi\McpServer\Model\AbilityCatalog` in `di.xml`.
+- A source of abilities implements `Hryvinskyi\McpServer\Api\AbilitySourceInterface`. Add it to the `sources` argument of `Hryvinskyi\McpServer\Model\AbilityCatalog` in `di.xml`. The sources are sorted by their `sortOrder` attribute: `pool` is 10, `webapi` is 20 and `graphql` is 30. A source without a `sortOrder` sorts first. When two sources offer one name, the first keeps it.
+- To add a single ability, you do not need a source. See *Registering an ability* below.
 - An exposure rule implements `Hryvinskyi\McpServer\Api\ExposureRuleInterface`. Add it to the `rules` argument of `Hryvinskyi\McpServer\Model\Exposure\ExposurePolicy`.
 - A guard implements `Hryvinskyi\McpServer\Api\InvocationGuardInterface`. Add it to the `guards` argument of `Hryvinskyi\McpServer\Model\AbilityInvoker`. `refusal()` returns the message of the refusal, or `null` to let the call through.
 - An exposure rule that wants its own denial reason also implements `Hryvinskyi\McpServer\Api\ReasonedExposureRuleInterface`. Its `denialReason()` becomes the `reason` of the `-32003` error.
 - To observe calls, implement `Hryvinskyi\McpServer\Api\InvocationListenerInterface`. Add it to the `listeners` argument of `Hryvinskyi\McpServer\Model\AbilityInvoker`. The invoker calls `started()` before the checks and `finished()` with the outcome after them, denials included. A listener that throws is logged and does not change the outcome of the call.
+
+### Registering an ability
+
+A module adds an ability by implementing `Hryvinskyi\McpServer\Api\PoolAbilityInterface` and adding the class to the `abilities` argument of `Hryvinskyi\McpServer\Model\Source\Pool\PoolAbilitySource`. The item's key must be the ability's name.
+
+```xml
+<type name="Hryvinskyi\McpServer\Model\Source\Pool\PoolAbilitySource">
+    <arguments>
+        <argument name="abilities" xsi:type="array">
+            <item name="acme_shipping.rate_table.get" xsi:type="object">Acme\Shipping\Model\Mcp\GetRateTableAbility\Proxy</item>
+        </argument>
+    </arguments>
+</type>
+```
+
+```php
+class GetRateTableAbility implements PoolAbilityInterface
+{
+    public function __construct(private readonly RateTable $rateTable)
+    {
+    }
+
+    public function getName(): string
+    {
+        return 'acme_shipping.rate_table.get';
+    }
+
+    public function getTitle(): string
+    {
+        return 'Get the shipping rate table';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Returns the rates of one carrier.';
+    }
+
+    public function getCategory(): string
+    {
+        return 'Acme_Shipping';
+    }
+
+    public function getAccess(): AbilityAccess
+    {
+        return AbilityAccess::Read;
+    }
+
+    public function getAclResources(): array
+    {
+        return ['Acme_Shipping::rates'];
+    }
+
+    public function getInputSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => ['carrier' => ['type' => 'string']],
+            'required' => ['carrier'],
+        ];
+    }
+
+    public function execute(array $arguments): mixed
+    {
+        $carrier = $arguments['carrier'] ?? null;
+        if (!is_string($carrier) || $carrier === '') {
+            throw new LocalizedException(__('Name the carrier in the argument "carrier".'));
+        }
+
+        return $this->rateTable->forCarrier($carrier);
+    }
+}
+```
+
+- The name follows `<module>.<service>.<method>`, in snake case: letters and digits, words joined by `_`, at most 255 characters. The title and the category must not be blank.
+- `getAclResources()` names at least one ACL resource, and the caller needs every one. An item with none is skipped, because an empty list would let every caller through.
+- The access (`read`, `write` or `delete`) decides whether read-only mode blocks the ability.
+- The exposure policy, the overrides, the confirmation and the guards apply to a registered ability like any other.
+- An item that breaks a rule is skipped with a warning in the log. The other abilities stay listed.
+- A registered ability wins over a Web API ability of the same name.
+- `execute()` gets the client's arguments, as untrusted as any request body. Never pass them, or an array built from them, to a generated factory or to the object manager. Magento reads such an array as constructor arguments. A `LocalizedException` is shown to the client. Any other exception is masked and logged.
+- Register an ability that is heavy to build as a `\Proxy`, as above. The catalog builds every item whenever it is read.
 
 The module keeps no log of calls. Errors go to the PSR logger.
 
@@ -274,12 +454,14 @@ The module keeps no log of calls. Errors go to the PSR logger.
 - What an ability returns goes to the client, and from there to the model provider the client uses. Customer data is part of that, as with REST. Give a token only the ACL resources that the client needs.
 - Serve the endpoint over HTTPS only. A token or an answer sent over plain HTTP can be read on the way.
 - A confirmation token is not an approval by a person. See *Confirmation tokens*.
-- Abilities from routes that `webapi.xml` marks as secure refuse a request that did not come over HTTPS.
+- Abilities from routes that `webapi.xml` marks as secure refuse a request that did not come over HTTPS. Over stdio they run, because a local pipe counts as secure.
+- GraphQL abilities send guest requests from the server to its own `/graphql`. They carry no token and no cookie.
+- Stdio has no login. Anyone who can run `bin/magento` on the server can act as any admin user through `hryvinskyi:mcp:serve`, with that admin's role. Use an admin user whose role holds only what the client needs, and keep shell access to the server limited.
 
 ## Limits of this version
 
-- The transport is HTTP only. The stdio transport is planned.
-- Abilities come from the Web API (REST routes). GraphQL abilities are planned.
+- The transports are HTTP and stdio. Stdio starts a new process for each message.
+- Abilities come from the Web API (REST routes), the GraphQL schema (as a guest) and modules that register them in `di.xml`.
 - There is no admin page to browse abilities or edit overrides yet. It is planned.
 - The server answers only on the admin store, at `/rest/all/V1/mcp`.
 - It offers tools only: no resources or prompts, and no event stream.

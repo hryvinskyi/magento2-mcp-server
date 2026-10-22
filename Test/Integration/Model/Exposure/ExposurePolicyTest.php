@@ -22,6 +22,8 @@ use Hryvinskyi\McpServer\Model\Config;
 use Hryvinskyi\McpServer\Model\Data\ExposureDecision;
 use Hryvinskyi\McpServer\Model\Exposure\ExposurePolicy;
 use Hryvinskyi\McpServer\Model\Exposure\Rule\BuiltInDenyListRule;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Magento\TestFramework\Fixture\Config as ConfigFixture;
 use Magento\TestFramework\Fixture\DbIsolation;
 use Magento\TestFramework\Helper\Bootstrap;
@@ -34,6 +36,9 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class ExposurePolicyTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+    use SwitchesGraphQlSourceOff;
+
     private const WRITE = 'catalog.product_repository.save';
     private const READ = 'catalog.product_repository.get_list';
     private const TOKEN_ISSUER = 'integration.admin_token_service.create_admin_access_token';

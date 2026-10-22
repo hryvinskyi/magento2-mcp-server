@@ -15,6 +15,7 @@ use Hryvinskyi\McpServer\Model\Confirmation\ArgumentsFingerprint;
 use Hryvinskyi\McpServer\Model\Confirmation\ConfirmationStoreInterface;
 use Hryvinskyi\McpServer\Model\Confirmation\DbConfirmationStore;
 use Hryvinskyi\McpServer\Test\Integration\Fake\FixedWallClock;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\TestFramework\Fixture\DbIsolation;
@@ -28,6 +29,8 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class DbConfirmationStoreTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     private const START = 1_800_000_000;
     private const SESSION = 'abababababababababababababababab';
     private const ABILITY = 'catalog.product_repository.save';

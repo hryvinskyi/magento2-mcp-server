@@ -16,6 +16,7 @@ use Hryvinskyi\McpServer\Api\Data\ClientInterfaceFactory;
 use Hryvinskyi\McpServer\Model\Session\DbSessionStore;
 use Hryvinskyi\McpServer\Model\Session\SessionStoreInterface;
 use Hryvinskyi\McpServer\Test\Integration\Fake\FixedWallClock;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\TestFramework\Fixture\DbIsolation;
@@ -29,6 +30,8 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class DbSessionStoreTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     private const START = 1_800_000_000;
     private const DAY = 86400;
 

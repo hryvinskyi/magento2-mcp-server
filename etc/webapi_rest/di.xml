@@ -16,4 +16,16 @@
             </argument>
         </arguments>
     </type>
+    <!-- The admin a stdio message runs as: asked before every other user context, and silent until the stdio
+         message command sets it, in a command line only -->
+    <type name="Magento\Authorization\Model\CompositeUserContext">
+        <arguments>
+            <argument name="userContexts" xsi:type="array">
+                <item name="hryvinskyiMcpCliAdmin" xsi:type="array">
+                    <item name="type" xsi:type="object">Hryvinskyi\McpServer\Model\Stdio\CliAdminUserContext</item>
+                    <item name="sortOrder" xsi:type="string">1</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
 </config>

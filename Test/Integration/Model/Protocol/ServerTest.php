@@ -14,6 +14,8 @@ use Hryvinskyi\McpServer\Model\Protocol\AnswerStatus;
 use Hryvinskyi\McpServer\Model\Protocol\ProtocolAnswer;
 use Hryvinskyi\McpServer\Model\Protocol\Server;
 use Hryvinskyi\McpServer\Model\Protocol\TransportContext;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\TestFramework\Fixture\DbIsolation;
 use Magento\TestFramework\Helper\Bootstrap;
@@ -26,6 +28,9 @@ use PHPUnit\Framework\TestCase;
 #[DbIsolation(true)]
 class ServerTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+    use SwitchesGraphQlSourceOff;
+
     /**
      * @var Server
      */

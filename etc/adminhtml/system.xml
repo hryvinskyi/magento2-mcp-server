@@ -31,7 +31,30 @@
                 <field id="expose_anonymous_abilities" translate="label comment" type="select" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
                     <label>Expose Anonymous Abilities</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment>Abilities that any guest may call through the REST API, such as account creation or guest checkout. Through MCP the CAPTCHA and rate limits set for each REST route do not apply, so these abilities stay denied unless this is Yes.</comment>
+                    <comment>Abilities that any guest may call through the REST API, such as account creation or guest checkout. Through MCP the CAPTCHA and rate limits set for each REST route do not apply, so these abilities stay denied unless this is Yes. Yes also lets every GraphQL ability run, since they all run as a guest; set Enable GraphQL Abilities to No to keep them off.</comment>
+                </field>
+            </group>
+            <group id="graphql" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>GraphQL</label>
+                <field id="enabled" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Enable GraphQL Abilities</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Offer every GraphQL query field as an ability, run as a guest through the store's own /graphql endpoint; they stay denied until Expose Anonymous Abilities is Yes.</comment>
+                </field>
+                <field id="expose_mutations" translate="label comment" type="select" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Expose GraphQL Mutations</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Also offer every GraphQL mutation field as an ability; mutations write data, so read-only mode blocks them.</comment>
+                </field>
+                <field id="endpoint_url" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>GraphQL Endpoint URL</label>
+                    <backend_model>Hryvinskyi\McpServer\Model\Source\GraphQl\Config\EndpointUrlValue</backend_model>
+                    <comment>An absolute http(s) URL ending in /graphql, for a server that cannot reach its public host name; empty means the store view's secure base URL followed by graphql.</comment>
+                </field>
+                <field id="store_code" translate="label comment" type="select" sortOrder="40" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Store View</label>
+                    <source_model>Hryvinskyi\McpServer\Model\Source\GraphQl\Config\StoreViewOptions</source_model>
+                    <comment>The store view GraphQL abilities run in, sent as the Store header; empty means the default store view.</comment>
                 </field>
             </group>
         </section>

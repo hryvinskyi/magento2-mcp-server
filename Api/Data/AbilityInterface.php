@@ -57,7 +57,9 @@ interface AbilityInterface
     public function getDescription(): string;
 
     /**
-     * Group the ability belongs to: the Magento module that provides it (`Magento_Catalog`)
+     * Group the ability belongs to, chosen by its source: the Magento module that provides a Web API ability
+     * (`Magento_Catalog`), `GraphQL` for a root field of the store's GraphQL schema, or the group a registered
+     * ability names
      *
      * @return string
      */

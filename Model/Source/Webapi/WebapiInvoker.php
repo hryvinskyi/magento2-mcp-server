@@ -12,8 +12,7 @@ namespace Hryvinskyi\McpServer\Model\Source\Webapi;
 use Hryvinskyi\McpServer\Api\Data\AbilityInterface;
 use Hryvinskyi\McpServer\Model\Service\ServiceLocatorInterface;
 use Hryvinskyi\McpServer\Model\Source\Webapi\Metadata\MetadataReaderInterface;
-use Magento\Framework\App\Request\Http as HttpRequest;
-use Magento\Framework\App\RequestInterface;
+use Hryvinskyi\McpServer\Model\Transport\ChannelSecurityInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Webapi\ServiceInputProcessor;
 use Magento\Framework\Webapi\ServiceOutputProcessor;
@@ -24,8 +23,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Calls the service method behind a Web API route the way Magento's synchronous REST processor does
  *
- * 1. A route Magento declares secure runs only when the current request came over HTTPS; otherwise a
- *    LocalizedException says so. A transport without an HTTP request (a command line) has no such check.
+ * 1. A route Magento declares secure runs only when the MCP message came over a secure channel: an HTTPS request, or
+ *    the local pipe of the stdio transport (see ChannelSecurityInterface). Otherwise a LocalizedException says so.
  * 2. The route's input array size limit is set, as Magento sets it for a REST call of that route.
  * 3. On an update route (PUT) whose URL names the record by a path parameter the method does not take, that
  *    argument is moved into the record the method saves, as REST moves the URL's value
@@ -52,7 +51,7 @@ class WebapiInvoker
      * @param ServiceLocatorInterface $serviceLocator
      * @param InputArraySizeLimitValue $inputArraySizeLimit
      * @param LoggerInterface $logger
-     * @param RequestInterface $request
+     * @param ChannelSecurityInterface $channelSecurity
      * @param MetadataReaderInterface $metadata
      */
     public function __construct(
@@ -62,7 +61,7 @@ class WebapiInvoker
         private readonly ServiceLocatorInterface $serviceLocator,
         private readonly InputArraySizeLimitValue $inputArraySizeLimit,
         private readonly LoggerInterface $logger,
-        private readonly RequestInterface $request,
+        private readonly ChannelSecurityInterface $channelSecurity,
         private readonly MetadataReaderInterface $metadata
     ) {
     }
@@ -82,7 +81,7 @@ class WebapiInvoker
         $class = $route->getServiceClass();
         $method = $route->getServiceMethod();
 
-        if ($route->isSecure() && $this->request instanceof HttpRequest && !$this->request->isSecure()) {
+        if ($route->isSecure() && !$this->channelSecurity->isSecure()) {
             throw new LocalizedException(__('This ability must be called over HTTPS.'));
         }
 

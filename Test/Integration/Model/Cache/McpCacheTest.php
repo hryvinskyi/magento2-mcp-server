@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Hryvinskyi\McpServer\Test\Integration\Model\Cache;
 
 use Hryvinskyi\McpServer\Model\Cache\Type\McpCache;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
 use Magento\Framework\App\Cache\StateInterface;
 use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\Framework\DataObject;
@@ -21,6 +22,8 @@ use PHPUnit\Framework\TestCase;
  */
 class McpCacheTest extends TestCase
 {
+    use BlocksRealGraphQlClient;
+
     public function testTheTypeIsListedInCacheManagement(): void
     {
         $typeList = Bootstrap::getObjectManager()->get(TypeListInterface::class);
@@ -31,7 +34,7 @@ class McpCacheTest extends TestCase
         $type = $types[McpCache::TYPE_IDENTIFIER];
         self::assertInstanceOf(DataObject::class, $type);
         self::assertSame('MCP Server', $this->text($type->getData('cache_type')));
-        self::assertSame('Ability input schemas', $this->text($type->getData('description')));
+        self::assertSame('Ability input schemas and the GraphQL schema', $this->text($type->getData('description')));
         self::assertSame(McpCache::CACHE_TAG, $type->getData('tags'));
     }
 

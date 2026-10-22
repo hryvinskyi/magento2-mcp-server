@@ -14,7 +14,9 @@ namespace Hryvinskyi\McpServer\Model\Protocol;
  *
  * Decoded into arrays, `{}` and `[]` are both the empty array, so the empty array counts as an object; any other
  * list was a JSON array. Members named like integers come back with integer keys, so members() names every one by
- * a string again.
+ * a string again. An object whose members are named "0", "1", … in order decodes as the same array as a list and is
+ * read as one: no place of the protocol where an object is expected (a message, its params, a tool's arguments)
+ * names its members that way, and to PHP code the two are one value.
  */
 class JsonObjects
 {

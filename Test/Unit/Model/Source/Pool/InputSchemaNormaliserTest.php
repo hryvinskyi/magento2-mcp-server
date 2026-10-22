@@ -40,6 +40,14 @@ class InputSchemaNormaliserTest extends TestCase
                 ['type' => 'array', 'items' => [], 'additionalProperties' => [], 'not' => []],
                 '{"type":"array","items":{},"additionalProperties":{},"not":{}}',
             ],
+            'properties named like the positions of a list are still an object' => [
+                ['properties' => ['0' => ['type' => 'string'], '1' => ['type' => 'integer', 'properties' => []]]],
+                '{"properties":{"0":{"type":"string"},"1":{"type":"integer","properties":{}}}}',
+            ],
+            'a map with other numbered names keeps its names' => [
+                ['$defs' => ['2' => ['type' => 'string'], '7' => []]],
+                '{"$defs":{"2":{"type":"string"},"7":{}}}',
+            ],
             'the schemas of a property are read the same way, at any depth' => [
                 ['properties' => ['address' => ['properties' => ['lines' => ['items' => []]]]]],
                 '{"properties":{"address":{"properties":{"lines":{"items":{}}}}}}',

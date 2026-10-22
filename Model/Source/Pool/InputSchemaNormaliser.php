@@ -16,7 +16,8 @@ namespace Hryvinskyi\McpServer\Model\Source\Pool;
  * PHP has one empty array for `{}` and `[]`. In a schema the keyword decides which one was meant:
  * - an empty schema is an object schema without properties;
  * - the keywords that hold a map of named schemas (`properties`, `patternProperties`, `$defs`, `definitions`,
- *   `dependentSchemas`) are objects, and each schema in them is read the same way;
+ *   `dependentSchemas`) are objects, and each schema in them is read the same way; a map whose names are "0", "1", …
+ *   in order is an \stdClass too, since PHP keeps such names as the keys of a list, which encodes as an array;
  * - the keywords that hold one schema or a list of schemas (`items`, `additionalProperties`, `anyOf`, `not`, …) hold
  *   `{}` when empty, and each schema in them is read the same way;
  * - every other keyword (`required`, `enum`, `default`, …) is left as it is.
@@ -100,7 +101,7 @@ class InputSchemaNormaliser
     }
 
     /**
-     * A map of named schemas: `{}` when empty, else each schema normalised
+     * A map of named schemas, each schema normalised: an \stdClass when it is empty or named like a list
      *
      * @param mixed $value
      * @return mixed
@@ -116,10 +117,10 @@ class InputSchemaNormaliser
 
         $map = [];
         foreach ($value as $name => $schema) {
-            $map[(string) $name] = $this->subschema($schema);
+            $map[$name] = $this->subschema($schema);
         }
 
-        return $map;
+        return array_is_list($map) ? (object) $map : $map;
     }
 
     /**

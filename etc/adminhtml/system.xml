@@ -34,6 +34,22 @@
                     <comment>Abilities that any guest may call through the REST API, such as account creation or guest checkout. Through MCP the CAPTCHA and rate limits set for each REST route do not apply, so these abilities stay denied unless this is Yes. Yes also lets every GraphQL ability run, since they all run as a guest; set Enable GraphQL Abilities to No to keep them off.</comment>
                 </field>
             </group>
+            <group id="personal_data" translate="label comment" type="text" sortOrder="15" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>Personal Data</label>
+                <comment>An MCP client hands every result it receives to its AI provider. While personal data is hidden, the values below reach the client as "[personal data]", and a log that records the calls keeps them the same way. To show personal data to particular abilities, select them on Stores › MCP Server and choose Show personal data.</comment>
+                <field id="hide" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Hide Personal Data</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>No sends the personal data in every result to clients as it is. Make sure a data processing agreement with the AI provider covers it.</comment>
+                </field>
+                <field id="fields" translate="label comment" type="textarea" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                    <label>Personal Data Fields</label>
+                    <comment>One field name per line; * stands for any characters. Case, underscores and other signs are ignored, so customer_firstname, customerFirstname and firstname all match *firstname. Every value under a matching field is hidden, however deep it sits, and so is the value of a custom attribute whose code matches.</comment>
+                    <depends>
+                        <field id="hide">1</field>
+                    </depends>
+                </field>
+            </group>
             <group id="graphql" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
                 <label>GraphQL</label>
                 <field id="enabled" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">

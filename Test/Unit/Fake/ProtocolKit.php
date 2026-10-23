@@ -18,6 +18,7 @@ use Hryvinskyi\McpServer\Api\Data\ClientInterfaceFactory;
 use Hryvinskyi\McpServer\Api\Data\InvocationInterface;
 use Hryvinskyi\McpServer\Api\Data\InvocationInterfaceFactory;
 use Hryvinskyi\McpServer\Api\Data\InvocationResultInterface;
+use Hryvinskyi\McpServer\Api\PersonalDataPolicyInterface;
 use Hryvinskyi\McpServer\Model\AbilityCatalog;
 use Hryvinskyi\McpServer\Model\Data\Ability;
 use Hryvinskyi\McpServer\Model\Data\AbilityPage;
@@ -60,6 +61,7 @@ use Hryvinskyi\McpServer\Model\Protocol\Tool\ToolInterface;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\ToolRegistry;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\ToolResults;
 use Hryvinskyi\McpServer\Model\Protocol\TransportContext;
+use Hryvinskyi\McpServer\Model\Section\AbilitySections;
 use Hryvinskyi\McpServer\Model\Session\Session;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\Framework\Module\PackageInfo;
@@ -90,6 +92,11 @@ class ProtocolKit
     public InMemoryConfirmationStore $confirmations;
 
     /**
+     * @var PersonalDataPolicyInterface Whether the store hides personal data; a test may replace it before it builds
+     */
+    public PersonalDataPolicyInterface $personalDataPolicy;
+
+    /**
      * @var ConstructingObjectManager
      */
     private ConstructingObjectManager $objectManager;
@@ -103,6 +110,7 @@ class ProtocolKit
         $this->sessions = new InMemorySessionStore();
         $this->logger = new RecordingLogger();
         $this->confirmations = new InMemoryConfirmationStore();
+        $this->personalDataPolicy = new FakePersonalDataPolicy();
         $this->objectManager = new ConstructingObjectManager([
             Reply::class => Reply::class,
             Message::class => Message::class,
@@ -167,7 +175,8 @@ class ProtocolKit
                     $this->versions(),
                     $this->clientFactory(),
                     $packageInfo,
-                    $this->replyFactory()
+                    $this->replyFactory(),
+                    $this->personalDataPolicy
                 ),
                 'notifications/initialized' => new Initialized($this->replyFactory()),
                 'ping' => new Ping($this->replyFactory()),
@@ -339,6 +348,20 @@ class ProtocolKit
     public function callContext(?Session $session = null): CallContext
     {
         return new CallContext($this->context($session?->getId() ?? ''), $session);
+    }
+
+    /**
+     * The sections of a small ACL tree, with Stores split and the outside resources named
+     *
+     * @return AbilitySections
+     */
+    public function sections(): AbilitySections
+    {
+        return new AbilitySections(
+            new FakeAclResources(),
+            ['Magento_Backend::stores'],
+            ['anonymous' => 'Open to anyone', 'self' => "The caller's own account"]
+        );
     }
 
     /**

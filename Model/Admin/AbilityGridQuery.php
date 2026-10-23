@@ -23,7 +23,7 @@ namespace Hryvinskyi\McpServer\Model\Admin;
  */
 class AbilityGridQuery
 {
-    private const FIELDS = ['name', 'title', 'source', 'category', 'access', 'exposure'];
+    private const FIELDS = ['name', 'title', 'source', 'category', 'access', 'exposure', 'section', 'personalData'];
 
     /**
      * The rows that pass every filter and match the search

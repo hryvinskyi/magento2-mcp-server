@@ -23,6 +23,7 @@ use Hryvinskyi\McpServer\Model\Protocol\ProtocolAnswer;
 use Hryvinskyi\McpServer\Model\Protocol\Reply;
 use Hryvinskyi\McpServer\Model\Protocol\Server;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeInvoker;
+use Hryvinskyi\McpServer\Test\Unit\Fake\FakePersonalDataPolicy;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeTool;
 use Hryvinskyi\McpServer\Test\Unit\Fake\ProtocolKit;
 use Magento\Authorization\Model\UserContextInterface;
@@ -81,6 +82,16 @@ class ServerTest extends TestCase
         self::assertStringContainsString('discover_abilities', $result['instructions']);
         self::assertStringContainsString('get_ability_info', $result['instructions']);
         self::assertStringContainsString('execute_ability', $result['instructions']);
+    }
+
+    public function testTheInstructionsSayPersonalDataArrivesHiddenOnlyWhileTheStoreHidesIt(): void
+    {
+        $hiding = $this->instructions();
+        $this->kit->personalDataPolicy = new FakePersonalDataPolicy(false);
+        $this->server = $this->kit->server();
+
+        self::assertStringContainsString('"[personal data]"', $hiding);
+        self::assertStringNotContainsString('personal data', $this->instructions());
     }
 
     public function testInitializeAnswersTheNewestVersionWhenTheRequestedOneIsUnsupported(): void
@@ -870,5 +881,22 @@ class ServerTest extends TestCase
                 return $this->calls;
             }
         };
+    }
+
+    /**
+     * The instructions an initialize answers with
+     *
+     * @return string
+     */
+    private function instructions(): string
+    {
+        $answer = $this->server->handle(
+            $this->request('initialize', 1, ['protocolVersion' => '2025-06-18']),
+            $this->kit->context()
+        );
+        $instructions = $this->arrayAt($this->decode($answer), 'result')['instructions'] ?? null;
+        self::assertIsString($instructions);
+
+        return $instructions;
     }
 }

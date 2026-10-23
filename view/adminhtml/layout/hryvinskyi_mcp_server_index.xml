@@ -19,6 +19,12 @@
                 <arguments>
                     <argument name="overview" xsi:type="object">Hryvinskyi\McpServer\ViewModel\ServerOverview</argument>
                 </arguments>
+                <block class="Magento\Backend\Block\Template" name="hryvinskyi.mcp.server.sections" as="sections"
+                       template="Hryvinskyi_McpServer::server/sections.phtml">
+                    <arguments>
+                        <argument name="sections" xsi:type="object">Hryvinskyi\McpServer\ViewModel\SectionsOverview</argument>
+                    </arguments>
+                </block>
             </block>
             <uiComponent name="hryvinskyi_mcp_ability_listing"/>
         </referenceContainer>

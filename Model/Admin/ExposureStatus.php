@@ -16,9 +16,9 @@ use Hryvinskyi\McpServer\Api\Data\InvocationResultInterface;
  * An ability's exposure as the catalog grid states it: a label, a line saying why, and the change a row offers
  *
  * A denied ability says which deny-list keeps it: the one the merchant manages on this page, the module's built-in
- * one, or the rule that keeps abilities anyone may call closed. A row offers to take an ability off the deny-list the
- * merchant put it on, and to put an exposed one on it. An ability the module keeps denied, or that read-only mode
- * blocks, offers nothing: its state does not depend on this page.
+ * one, the rule that keeps abilities anyone may call closed, or a section switched off. A row offers to take an
+ * ability off the deny-list the merchant put it on, and to put an exposed one on it. An ability the module keeps
+ * denied, a switched-off section denies or read-only mode blocks offers nothing from its row.
  *
  * @phpstan-import-type AbilityRow from AbilityRows
  * @phpstan-type Status array{code: string, label: string, note: string, tone: string, change: string|null}
@@ -77,6 +77,7 @@ class ExposureStatus
             'denied_here' => __('Denied: deny-list'),
             'denied_' . InvocationResultInterface::DENIAL_DENY_LIST => __('Denied: built-in deny-list'),
             'denied_' . InvocationResultInterface::DENIAL_ANONYMOUS_ABILITY => __('Denied: open to anyone'),
+            'denied_' . InvocationResultInterface::DENIAL_SECTION_OFF => __('Denied: section off'),
             default => __('Denied by a rule'),
         };
     }
@@ -100,6 +101,8 @@ class ExposureStatus
             ),
             'denied_' . InvocationResultInterface::DENIAL_ANONYMOUS_ABILITY
                 => __('Its route needs no login, and Expose Anonymous Abilities is off.'),
+            'denied_' . InvocationResultInterface::DENIAL_SECTION_OFF
+                => __('A section it belongs to is switched off above.'),
             default => __('Rule: %1', $reason),
         };
     }

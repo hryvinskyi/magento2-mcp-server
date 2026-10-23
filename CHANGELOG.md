@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-23
+
+### Added
+- Personal data is kept from clients: every value under a field the store lists as personal (email, names, phone,
+  address lines, postcode, city, date of birth, tax and VAT numbers, gender, company, customer note, IP addresses, the
+  card holder and the card's last digits, payment additional information, gift messages, shipping labels)
+  reaches the client as `[personal data]`, however deep it sits. Custom attributes are judged by their code. Settings
+  **Hide Personal Data** (on after install) and **Personal Data Fields** in the new group **Personal Data**.
+- **Show personal data** and **Hide personal data** on the MCP Server page let chosen abilities send it; the catalog
+  shows and filters whether each ability's personal data is hidden or shown, and the page warns while any ability sends
+  it. `get_ability_info` answers `personalData`, and `initialize` tells the client that personal data arrives hidden.
+- Sections: areas of the admin panel read from the ACL tree (Catalog, Sales, Customers, Stores › Inventory…), each
+  holding the abilities whose ACL resources lie in it. The MCP Server page lists them with a switch; abilities of a
+  section switched off are denied with the reason `section_off`. The catalog has a Section column and filter, and
+  `get_ability_info` answers `sections`.
+- `Api\ResultFilterInterface`: filters in the invoker's pool `resultFilters` change what a succeeded call returns
+  before the listeners and the client see it. `Api\PersonalDataPolicyInterface`, `Api\PersonalDataExceptionsInterface`
+  and `Api\SectionSwitchesInterface`.
+
+### Changed
+- The catalog page's changes are a pool of `Model\Admin\AbilityChangeInterface` in `di.xml` (`changes` of
+  `Model\Admin\ExposureChanges`).
+
 ## [1.2.0] - 2026-10-23
 
 ### Added

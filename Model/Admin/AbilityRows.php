@@ -12,13 +12,16 @@ namespace Hryvinskyi\McpServer\Model\Admin;
 use Hryvinskyi\McpServer\Api\AbilityCatalogInterface;
 use Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface;
 use Hryvinskyi\McpServer\Api\ExposurePolicyInterface;
+use Hryvinskyi\McpServer\Api\PersonalDataPolicyInterface;
+use Hryvinskyi\McpServer\Model\Section\AbilitySections;
 use Magento\Framework\ObjectManager\ResetAfterRequestInterface;
 
 /**
  * Every ability of the catalog as a row of the admin's catalog grid: what it is, and its exposure with the reason
  *
  * A row also tells whether the merchant put the ability on the deny-list or asked for confirmation here, apart from
- * what the module's own rules decide. The rows are read once per request.
+ * what the module's own rules decide, the sections it belongs to (`section` is the first of them) and whether the
+ * personal data in its results is `hidden` or `shown`. The rows are read once per request.
  *
  * @phpstan-type AbilityRow array{
  *     name: string,
@@ -30,11 +33,17 @@ use Magento\Framework\ObjectManager\ResetAfterRequestInterface;
  *     exposure: string,
  *     reason: string,
  *     deniedHere: bool,
- *     confirmHere: bool
+ *     confirmHere: bool,
+ *     sections: list<string>,
+ *     section: string,
+ *     personalData: string
  * }
  */
 class AbilityRows implements ResetAfterRequestInterface
 {
+    public const PERSONAL_DATA_HIDDEN = 'hidden';
+    public const PERSONAL_DATA_SHOWN = 'shown';
+
     /**
      * More abilities than any store offers, so one page holds the whole catalog
      */
@@ -49,11 +58,15 @@ class AbilityRows implements ResetAfterRequestInterface
      * @param AbilityCatalogInterface $catalog
      * @param ExposurePolicyInterface $exposurePolicy
      * @param AbilityOverrideRepositoryInterface $overrides
+     * @param AbilitySections $sections
+     * @param PersonalDataPolicyInterface $personalData
      */
     public function __construct(
         private readonly AbilityCatalogInterface $catalog,
         private readonly ExposurePolicyInterface $exposurePolicy,
-        private readonly AbilityOverrideRepositoryInterface $overrides
+        private readonly AbilityOverrideRepositoryInterface $overrides,
+        private readonly AbilitySections $sections,
+        private readonly PersonalDataPolicyInterface $personalData
     ) {
     }
 
@@ -73,6 +86,7 @@ class AbilityRows implements ResetAfterRequestInterface
         foreach ($this->catalog->search('', null, null, self::WHOLE_CATALOG, 0)->getItems() as $ability) {
             $decision = $this->exposurePolicy->decisionOf($ability);
             $override = $overrides[$ability->getName()] ?? null;
+            $sections = $this->sections->of($ability);
             $rows[] = [
                 'name' => $ability->getName(),
                 'title' => $ability->getTitle(),
@@ -84,6 +98,11 @@ class AbilityRows implements ResetAfterRequestInterface
                 'reason' => $decision->getDenialReason(),
                 'deniedHere' => $override !== null && $override->isDenied(),
                 'confirmHere' => $override !== null && $override->needsConfirmation(),
+                'sections' => $sections,
+                'section' => $sections[0] ?? AbilitySections::OTHER,
+                'personalData' => $this->personalData->hidesFor($ability->getName())
+                    ? self::PERSONAL_DATA_HIDDEN
+                    : self::PERSONAL_DATA_SHOWN,
             ];
         }
 

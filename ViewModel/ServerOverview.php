@@ -11,6 +11,8 @@ namespace Hryvinskyi\McpServer\ViewModel;
 
 use Hryvinskyi\McpServer\Api\ConfigInterface;
 use Hryvinskyi\McpServer\Api\Data\Exposure;
+use Hryvinskyi\McpServer\Api\PersonalDataExceptionsInterface;
+use Hryvinskyi\McpServer\Api\PersonalDataPolicyInterface;
 use Hryvinskyi\McpServer\Model\Admin\AbilityRows;
 use Hryvinskyi\McpServer\Model\Protocol\ProtocolVersions;
 use Magento\Backend\Model\UrlInterface as BackendUrl;
@@ -54,6 +56,8 @@ class ServerOverview implements ArgumentInterface
      * @param BackendUrl $backendUrl
      * @param AuthorizationInterface $authorization
      * @param JsonHexTag $json
+     * @param PersonalDataPolicyInterface $personalData
+     * @param PersonalDataExceptionsInterface $personalDataExceptions
      */
     public function __construct(
         private readonly ConfigInterface $config,
@@ -63,7 +67,9 @@ class ServerOverview implements ArgumentInterface
         private readonly DirectoryList $directoryList,
         private readonly BackendUrl $backendUrl,
         private readonly AuthorizationInterface $authorization,
-        private readonly JsonHexTag $json
+        private readonly JsonHexTag $json,
+        private readonly PersonalDataPolicyInterface $personalData,
+        private readonly PersonalDataExceptionsInterface $personalDataExceptions
     ) {
     }
 
@@ -171,6 +177,31 @@ class ServerOverview implements ArgumentInterface
             $this->rows->all(),
             static fn (array $row): bool => Exposure::from($row['exposure'])->allowsCall()
         ));
+    }
+
+    /**
+     * Where personal data stands: hidden, hidden but shown to some abilities, or shown to all
+     *
+     * @return string
+     */
+    public function personalDataText(): string
+    {
+        if (!$this->personalData->isHidingOn()) {
+            return (string) __('Shown to every ability');
+        }
+        $shown = count($this->personalDataExceptions->shown());
+
+        return (string) ($shown === 0 ? __('Hidden') : __('Hidden, shown to %1 abilities', $shown));
+    }
+
+    /**
+     * Whether any ability sends personal data to clients
+     *
+     * @return bool
+     */
+    public function sendsPersonalData(): bool
+    {
+        return !$this->personalData->isHidingOn() || $this->personalDataExceptions->shown() !== [];
     }
 
     /**

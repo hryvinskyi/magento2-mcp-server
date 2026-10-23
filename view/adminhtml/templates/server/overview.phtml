@@ -49,6 +49,17 @@ $transports = ['http' => __('HTTP endpoint'), 'stdio' => __('Local stdio')];
             <?php endif; ?>
         </div>
     <?php endif; ?>
+    <?php if ($overview->isEnabled() && $overview->sendsPersonalData()): ?>
+        <div class="message message-notice mcp-server__message">
+            <?= $escaper->escapeHtml(__(
+                'Some abilities send personal data to clients, and through them to the clients\' AI providers. A data '
+                . 'processing agreement with each provider must cover it.'
+            )) ?>
+            <?php if ($configUrl !== null): ?>
+                <a href="<?= $escaper->escapeUrl($configUrl) ?>"><?= $escaper->escapeHtml(__('Change')) ?></a>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
 
     <section class="mcp-card" aria-labelledby="mcp-connection-title">
         <header class="mcp-card__header">
@@ -119,6 +130,10 @@ $transports = ['http' => __('HTTP endpoint'), 'stdio' => __('Local stdio')];
                         <dt><?= $escaper->escapeHtml(__('Exposed')) ?></dt>
                         <dd><?= (int) $overview->exposedCount() ?></dd>
                     </div>
+                    <div>
+                        <dt><?= $escaper->escapeHtml(__('Personal data')) ?></dt>
+                        <dd><?= $escaper->escapeHtml($overview->personalDataText()) ?></dd>
+                    </div>
                 </dl>
             </div>
             <div class="mcp-card__clients">
@@ -172,6 +187,8 @@ $transports = ['http' => __('HTTP endpoint'), 'stdio' => __('Local stdio')];
             </div>
         </div>
     </section>
+
+    <?= $block->getChildHtml('sections') ?>
 
     <div class="mcp-catalog__heading">
         <h2 class="mcp-card__title"><?= $escaper->escapeHtml(__('Ability catalog')) ?></h2>

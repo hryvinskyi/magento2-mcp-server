@@ -65,6 +65,30 @@ class ServerPageTest extends AbstractBackendController
         self::assertStringNotContainsString('The MCP server is disabled', $body);
     }
 
+    #[Config('hryvinskyi_mcp_server/general/enabled', '1')]
+    public function testThePageListsTheSectionsAndSaysPersonalDataIsHidden(): void
+    {
+        $this->dispatch($this->uri);
+        $body = $this->body();
+
+        self::assertStringContainsString('mcp-sections', $body);
+        self::assertStringContainsString('<strong>System</strong>', $body);
+        self::assertStringContainsString('Switch off', $body);
+        self::assertMatchesRegularExpression('#<dt>\s*Personal data\s*</dt>\s*<dd>Hidden</dd>#', $body);
+        self::assertStringNotContainsString('Some abilities send personal data', $body);
+    }
+
+    #[Config('hryvinskyi_mcp_server/general/enabled', '1')]
+    #[Config('hryvinskyi_mcp_server/personal_data/hide', '0')]
+    public function testAServerThatSendsPersonalDataWarnsThatAnAgreementMustCoverIt(): void
+    {
+        $this->dispatch($this->uri);
+        $body = $this->body();
+
+        self::assertStringContainsString('Some abilities send personal data to clients', $body);
+        self::assertStringContainsString('Shown to every ability', $body);
+    }
+
     /**
      * The x-magento-init config of the page that mounts the connection card
      *

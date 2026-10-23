@@ -74,6 +74,24 @@
                     <label translate="true">Clear confirmation</label>
                 </settings>
             </action>
+            <action name="show_personal_data">
+                <settings>
+                    <confirm>
+                        <message translate="true">The selected abilities will send the personal data in their results to the client, and through it to the client's AI provider.</message>
+                        <title translate="true">Show personal data?</title>
+                    </confirm>
+                    <url path="hryvinskyi_mcp/server/exposure/change/show_personal_data"/>
+                    <type>show_personal_data</type>
+                    <label translate="true">Show personal data</label>
+                </settings>
+            </action>
+            <action name="hide_personal_data">
+                <settings>
+                    <url path="hryvinskyi_mcp/server/exposure/change/hide_personal_data"/>
+                    <type>hide_personal_data</type>
+                    <label translate="true">Hide personal data</label>
+                </settings>
+            </action>
         </massaction>
         <paging name="listing_paging"/>
     </listingToolbar>
@@ -112,6 +130,15 @@
                 <label translate="true">Module</label>
             </settings>
         </column>
+        <column name="section" component="Magento_Ui/js/grid/columns/select" sortOrder="45">
+            <settings>
+                <filter>select</filter>
+                <dataType>select</dataType>
+                <options class="Hryvinskyi\McpServer\Ui\Component\Listing\Options\SectionOptions"/>
+                <sortable>false</sortable>
+                <label translate="true">Section</label>
+            </settings>
+        </column>
         <column name="access" component="Magento_Ui/js/grid/columns/select" sortOrder="50">
             <settings>
                 <filter>select</filter>
@@ -136,6 +163,14 @@
                 <options class="Hryvinskyi\McpServer\Ui\Component\Listing\Options\ExposureOptions"/>
                 <bodyTmpl>ui/grid/cells/html</bodyTmpl>
                 <label translate="true">Exposure status</label>
+            </settings>
+        </column>
+        <column name="personalData" component="Magento_Ui/js/grid/columns/select" sortOrder="75">
+            <settings>
+                <filter>select</filter>
+                <dataType>select</dataType>
+                <options class="Hryvinskyi\McpServer\Ui\Component\Listing\Options\PersonalDataOptions"/>
+                <label translate="true">Personal data</label>
             </settings>
         </column>
         <actionsColumn name="actions" class="Hryvinskyi\McpServer\Ui\Component\Listing\Column\AbilityActions"

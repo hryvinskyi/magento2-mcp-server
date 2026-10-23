@@ -73,4 +73,25 @@
             <column name="expires_at"/>
         </index>
     </table>
+    <table name="hryvinskyi_mcp_section_off" resource="default" engine="innodb"
+           comment="MCP Server sections of the ability catalog switched off">
+        <column xsi:type="varchar" name="name" nullable="false" length="255" comment="Section code"/>
+        <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP"
+                comment="Updated At"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="name"/>
+        </constraint>
+    </table>
+
+    <table name="hryvinskyi_mcp_personal_data_shown" resource="default" engine="innodb"
+           comment="MCP Server abilities whose results keep their personal data">
+        <column xsi:type="varchar" name="name" nullable="false" length="255" comment="Ability name"/>
+        <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP"
+                comment="Updated At"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="name"/>
+        </constraint>
+    </table>
 </schema>

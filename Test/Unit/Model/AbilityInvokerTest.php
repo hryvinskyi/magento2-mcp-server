@@ -21,6 +21,7 @@ use Hryvinskyi\McpServer\Api\Data\InvocationResultInterfaceFactory;
 use Hryvinskyi\McpServer\Api\ExposurePolicyInterface;
 use Hryvinskyi\McpServer\Api\InvocationGuardInterface;
 use Hryvinskyi\McpServer\Api\InvocationListenerInterface;
+use Hryvinskyi\McpServer\Api\ResultFilterInterface;
 use Hryvinskyi\McpServer\Model\AbilityCatalog;
 use Hryvinskyi\McpServer\Model\AbilityInvoker;
 use Hryvinskyi\McpServer\Model\Data\Ability;
@@ -29,6 +30,7 @@ use Hryvinskyi\McpServer\Model\Data\Caller;
 use Hryvinskyi\McpServer\Model\Data\Client;
 use Hryvinskyi\McpServer\Model\Data\Invocation;
 use Hryvinskyi\McpServer\Model\Data\InvocationResult;
+use Hryvinskyi\McpServer\Test\Unit\Fake\CallbackResultFilter;
 use Hryvinskyi\McpServer\Test\Unit\Fake\ConstructingObjectManager;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeAbilitySource;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FixedExposurePolicy;
@@ -484,6 +486,64 @@ class AbilityInvokerTest extends TestCase
         self::assertSame([$result], $this->listener->results);
     }
 
+    public function testEachResultFilterInTurnChangesWhatTheListenersAndTheCallerGet(): void
+    {
+        $invoker = $this->invoker(
+            Exposure::Exposed,
+            true,
+            static fn (): array => ['email' => 'ann@example.com'],
+            resultFilters: [
+                'first' => new CallbackResultFilter(
+                    static fn (AbilityInterface $ability, mixed $value): array => [$ability->getName() => $value]
+                ),
+                'second' => new CallbackResultFilter(static fn (AbilityInterface $ability, mixed $value): array => [
+                    'filtered' => $value,
+                ]),
+            ]
+        );
+
+        $result = $invoker->invoke($this->invocation(self::READ));
+
+        self::assertSame(['filtered' => [self::READ => ['email' => 'ann@example.com']]], $result->getValue());
+        self::assertSame([$result], $this->listener->results);
+    }
+
+    public function testAFilterThatThrowsFailsTheCallSoNothingUnfilteredGoesOut(): void
+    {
+        $invoker = $this->invoker(
+            Exposure::Exposed,
+            true,
+            static fn (): array => ['email' => 'ann@example.com'],
+            resultFilters: ['broken' => new CallbackResultFilter(static function (): never {
+                throw new \RuntimeException('The filter broke.');
+            })]
+        );
+
+        $result = $invoker->invoke($this->invocation(self::READ));
+
+        self::assertSame([InvocationOutcome::Failed, null], [$result->getOutcome(), $result->getValue()]);
+    }
+
+    public function testAFilterIsNotAskedAboutACallThatWasRefused(): void
+    {
+        $asked = false;
+        $invoker = $this->invoker(
+            Exposure::Denied,
+            true,
+            resultFilters: ['probe' => new CallbackResultFilter(
+                static function (AbilityInterface $ability, mixed $value) use (&$asked): mixed {
+                    $asked = true;
+
+                    return $value;
+                }
+            )]
+        );
+
+        $invoker->invoke($this->invocation(self::READ));
+
+        self::assertFalse($asked);
+    }
+
     /**
      * @param Exposure $exposure
      * @param bool $allowed
@@ -491,6 +551,7 @@ class AbilityInvokerTest extends TestCase
      * @param ExposurePolicyInterface|null $policy
      * @param array<string, InvocationListenerInterface>|null $listeners
      * @param array<string, InvocationGuardInterface> $guards
+     * @param array<string, ResultFilterInterface> $resultFilters
      * @return AbilityInvoker
      */
     private function invoker(
@@ -499,7 +560,8 @@ class AbilityInvokerTest extends TestCase
         ?\Closure $behaviour = null,
         ?ExposurePolicyInterface $policy = null,
         ?array $listeners = null,
-        array $guards = []
+        array $guards = [],
+        array $resultFilters = []
     ): AbilityInvoker {
         $this->source = new FakeAbilitySource(
             'webapi',
@@ -551,7 +613,8 @@ class AbilityInvokerTest extends TestCase
             $errorProcessor,
             $this->logger,
             $listeners ?? ['recording' => $this->listener],
-            $guards
+            $guards,
+            $resultFilters
         );
     }
 

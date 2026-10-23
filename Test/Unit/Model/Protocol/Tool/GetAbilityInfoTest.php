@@ -12,6 +12,7 @@ namespace Hryvinskyi\McpServer\Test\Unit\Model\Protocol\Tool;
 use Hryvinskyi\McpServer\Api\Data\Exposure;
 use Hryvinskyi\McpServer\Model\Protocol\Exception\InvalidToolArgumentException;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\GetAbilityInfo;
+use Hryvinskyi\McpServer\Test\Unit\Fake\FakePersonalDataPolicy;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FixedExposurePolicy;
 use Hryvinskyi\McpServer\Test\Unit\Fake\ProtocolKit;
 use PHPUnit\Framework\TestCase;
@@ -48,7 +49,9 @@ class GetAbilityInfoTest extends TestCase
                 'source' => 'webapi',
                 'access' => 'write',
                 'aclResources' => ['Magento_Catalog::products', 'Magento_Catalog::edit'],
+                'sections' => ['Catalog'],
                 'exposure' => 'read_only_blocked',
+                'personalData' => 'hidden',
                 'allowedForYou' => false,
                 'inputSchema' => ['type' => 'object', 'properties' => (object) [], 'description' => 'webapi'],
                 'denialReason' => 'read_only_mode',
@@ -80,6 +83,16 @@ class GetAbilityInfoTest extends TestCase
 
         self::assertIsArray($result['structuredContent']);
         self::assertArrayNotHasKey('denialReason', $result['structuredContent']);
+    }
+
+    public function testAnAbilityShownPersonalDataSaysSo(): void
+    {
+        $this->kit->personalDataPolicy = new FakePersonalDataPolicy(true, ['catalog.product_repository.save']);
+
+        $result = $this->tool()->call(['name' => 'catalog.product_repository.save'], $this->kit->callContext());
+
+        self::assertIsArray($result['structuredContent']);
+        self::assertSame('shown', $result['structuredContent']['personalData'] ?? null);
     }
 
     public function testAnUnknownNameIsAToolErrorPointingAtDiscovery(): void
@@ -118,7 +131,9 @@ class GetAbilityInfoTest extends TestCase
             $this->kit->catalog($allowed),
             new FixedExposurePolicy($exposure, null, $denialReason),
             $this->kit->argumentReader(),
-            $this->kit->toolResults()
+            $this->kit->toolResults(),
+            $this->kit->sections(),
+            $this->kit->personalDataPolicy
         );
     }
 }

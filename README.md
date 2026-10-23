@@ -57,6 +57,13 @@ Group **General**:
 
 The server is off after install. Turning it on is your step.
 
+Group **Personal Data** (see *Personal data*):
+
+| Option | Path | Description | Default |
+|--------|------|-------------|---------|
+| Hide Personal Data | `hryvinskyi_mcp_server/personal_data/hide` | Every value under a personal field reaches the client as `[personal data]`. No sends results as they are | Yes |
+| Personal Data Fields | `hryvinskyi_mcp_server/personal_data/fields` | One field name per line; `*` stands for any characters | Email, names and name prefix/suffix, phone, fax, street, postcode, city, date of birth, tax/VAT number, gender, company, customer note, IP addresses, the card holder and the card's last digits, payment additional information, gift message sender, recipient and text, shipping labels |
+
 Group **GraphQL**:
 
 | Option | Path | Description | Default |
@@ -309,7 +316,7 @@ Every ability has one exposure. When several rules apply, the strictest wins, in
 
 | Order | Exposure | When |
 |-------|----------|------|
-| 1 | `denied` | The ability is on the built-in deny-list, has the `deny` override, or is open to guests while **Expose Anonymous Abilities** is No |
+| 1 | `denied` | The ability is on the built-in deny-list, has the `deny` override, belongs to a section that is switched off, or is open to guests while **Expose Anonymous Abilities** is No |
 | 2 | `read_only_blocked` | Read-only mode is on and the ability is `write` or `delete` |
 | 3 | `needs_confirmation` | The ability has the `confirm` override |
 | 4 | `exposed` | None of the above |
@@ -340,6 +347,14 @@ The patterns are `fnmatch` patterns in `etc/di.xml`, in the `patterns` argument 
 
 A per-ability override is a row in `hryvinskyi_mcp_ability_override`: `ability`, `deny` and `confirm`. Overrides only add restrictions. They cannot lift read-only mode or the built-in deny-list. The `Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface` reads and saves overrides; the MCP Server page edits them (see *The admin page*).
 
+### Sections
+
+A section is an area of the admin panel, read from the ACL tree: the nodes right below the root (Catalog, Sales, Customers, Carts, Marketing, Content, System…). **Stores** holds unrelated areas, so each of its children is a section of its own: Stores › Settings, Stores › Inventory, Stores › Attributes and so on. An ability belongs to the sections of the ACL resources it needs. A module that extends an area with that area's resources lands in its section: product types, configurable and bundle products, stock in Catalog; gift messages in Sales.
+
+Resources outside the tree have sections of their own: `anonymous` is **Open to anyone**, `self` is **The caller's own account**. An ability that needs no resource, or only resources no tree holds, is in **Other**.
+
+The MCP Server page lists every section with its modules, its abilities and how many of them clients may call, and a switch. While a section is off, its abilities are `denied` with the reason `section_off`; an ability in several sections is denied when one of them is off. The switches are rows of `hryvinskyi_mcp_section_off`, behind `Hryvinskyi\McpServer\Api\SectionSwitchesInterface`. The areas split like Stores are the `split` argument of `Hryvinskyi\McpServer\Model\Section\AbilitySections` in `di.xml`.
+
 ### Anonymous abilities
 
 An ability whose only ACL resource is `anonymous` can be called by a guest through REST. Through MCP, the CAPTCHA and rate limits of each REST route do not apply. So these abilities are `denied` with the reason `anonymous_ability`, until you set **Expose Anonymous Abilities** to Yes. Turn it on only when you accept that. Every GraphQL ability is one of them.
@@ -359,7 +374,7 @@ The module adds these ACL resources:
 - **Stores > MCP Server** (`Hryvinskyi_McpServer::mcp_server`)
   - **Use the MCP endpoint** (`Hryvinskyi_McpServer::access`): required to call the endpoint
   - **View the MCP Server page** (`Hryvinskyi_McpServer::view`): the page and its catalog
-  - **Manage ability exposure** (`Hryvinskyi_McpServer::manage`): the deny-list and confirmation changes on the page
+  - **Manage ability exposure** (`Hryvinskyi_McpServer::manage`): the deny-list, confirmation, section and personal data changes on the page
 - **MCP Server Settings** (`Hryvinskyi_McpServer::config`): the configuration section
 
 ## The admin page
@@ -368,17 +383,20 @@ The module adds these ACL resources:
 
 - **Connection**: whether the server is on and in read-only mode, the endpoint URL (the default store view's secure base
   URL followed by `rest/all/V1/mcp`), the stdio command, how to authorize, the protocol version and how many abilities a
-  client may call.
+  client may call, and whether personal data is hidden. A notice says so when some ability sends personal data.
+- **Sections**: every area of the store with its modules and abilities, and a switch for each (see *Sections*).
 - **Client configuration**: a JSON configuration per client (Claude Desktop, Cursor) and transport (HTTP, stdio), with
   the file it goes into. The token and the admin login are placeholders you fill in; the page never prints a secret.
   Claude Desktop reaches an HTTP server with a Bearer token through the `mcp-remote` bridge (`npx`).
 - **Ability catalog**: every ability with its source, module, access, required ACL resources and exposure. The exposure
   line says why: put on the deny-list on this page, on the module's built-in deny-list, open to anyone while anonymous
-  abilities are off, blocked by read-only mode, or waiting for a confirmation. Search and filter by source, module,
-  access and exposure.
+  abilities are off, in a section switched off, blocked by read-only mode, or waiting for a confirmation. The section
+  and whether personal data is hidden or shown are columns too. Search and filter by source, module, section, access,
+  exposure and personal data.
 - With **Manage ability exposure** (`Hryvinskyi_McpServer::manage`): a row puts its ability on the deny-list or takes it
   off, and the mass actions **Add to deny-list**, **Remove from deny-list**, **Require confirmation** and **Clear
-  confirmation** change every selected ability (or every ability the search finds). A change applies to the next call.
+  confirmation**, **Show personal data** and **Hide personal data** change every selected ability (or every ability the
+  search finds). A change applies to the next call.
   An ability the module itself keeps denied, or that read-only mode blocks, offers no change: its state does not depend
   on this page.
 
@@ -389,6 +407,7 @@ The module adds these ACL resources:
 - An exposure rule implements `Hryvinskyi\McpServer\Api\ExposureRuleInterface`. Add it to the `rules` argument of `Hryvinskyi\McpServer\Model\Exposure\ExposurePolicy`.
 - A guard implements `Hryvinskyi\McpServer\Api\InvocationGuardInterface`. Add it to the `guards` argument of `Hryvinskyi\McpServer\Model\AbilityInvoker`. `refusal()` returns the message of the refusal, or `null` to let the call through.
 - An exposure rule that wants its own denial reason also implements `Hryvinskyi\McpServer\Api\ReasonedExposureRuleInterface`. Its `denialReason()` becomes the `reason` of the `-32003` error.
+- To change what a succeeded call returns, implement `Hryvinskyi\McpServer\Api\ResultFilterInterface` and add it to the `resultFilters` argument of `Hryvinskyi\McpServer\Model\AbilityInvoker`. The filters run in order before the listeners and the client see the value; a filter that throws fails the call. Hiding personal data is the filter `personalData`.
 - To observe calls, implement `Hryvinskyi\McpServer\Api\InvocationListenerInterface`. Add it to the `listeners` argument of `Hryvinskyi\McpServer\Model\AbilityInvoker`. The invoker calls `started()` before the checks and `finished()` with the outcome after them, denials included. A listener that throws is logged and does not change the outcome of the call.
 
 ### Registering an ability
@@ -474,9 +493,20 @@ class GetRateTableAbility implements PoolAbilityInterface
 
 The module keeps no log of calls. Errors go to the PSR logger.
 
+## Personal data
+
+What an ability returns goes to the client, and from there to the AI provider the client uses: a third party, often outside the EU. So personal data is hidden after install. Every value under a field the setting **Personal Data Fields** lists reaches the client as `[personal data]`, however deep it sits: a customer's email and name, an address's street lines and phone. A custom attribute given as `attribute_code` and `value` is judged by its code. `null` stays `null`. Arguments are not touched: they came from the client.
+
+- A field name matches in its normalised form, lower case with only letters and digits, so `*firstname` covers `firstname`, `customer_firstname` and GraphQL's `customerFirstname`.
+- Free text is not on the list: order comments and notes stay readable, so an agent can follow an order's history. Add `comment` and `comments` to the list to hide them too.
+- To let some abilities send personal data, select them on the MCP Server page and choose **Show personal data** (rows of `hryvinskyi_mcp_personal_data_shown`, behind `Hryvinskyi\McpServer\Api\PersonalDataExceptionsInterface`). Setting **Hide Personal Data** to No shows it to every ability.
+- `initialize` tells the client that personal data arrives hidden, and `get_ability_info` answers `personalData` (`hidden` or `shown`) for each ability.
+- A listener records what left the store: a log of the calls keeps the hidden values, not the data.
+- Sending personal data to an AI provider needs a data processing agreement with that provider. The MCP Server page reminds you when an ability sends it.
+
 ## Privacy and security
 
-- What an ability returns goes to the client, and from there to the model provider the client uses. Customer data is part of that, as with REST. Give a token only the ACL resources that the client needs.
+- What an ability returns goes to the client, and from there to the model provider the client uses. Personal data is hidden (see *Personal data*); the rest of the store's data is not. Give a token only the ACL resources that the client needs.
 - Serve the endpoint over HTTPS only. A token or an answer sent over plain HTTP can be read on the way.
 - A confirmation token is not an approval by a person. See *Confirmation tokens*.
 - Abilities from routes that `webapi.xml` marks as secure refuse a request that did not come over HTTPS. Over stdio they run, because a local pipe counts as secure.

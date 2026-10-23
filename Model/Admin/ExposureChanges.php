@@ -10,87 +10,66 @@ declare(strict_types=1);
 namespace Hryvinskyi\McpServer\Model\Admin;
 
 use Hryvinskyi\McpServer\Api\AbilityCatalogInterface;
-use Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface;
-use Hryvinskyi\McpServer\Api\Data\AbilityOverrideInterfaceFactory;
 use Magento\Framework\Exception\CouldNotSaveException;
 use Magento\Framework\Exception\NoSuchEntityException;
 
 /**
- * The merchant's changes to the stored deny-list and confirmations, applied to many abilities at once
+ * The merchant's changes to many abilities at once: the deny-list, confirmations, personal data
  *
- * A change sets one of the two settings of an ability's override and keeps the other. A name no source offers is
- * skipped, so a stale selection never stores an override for an ability that does not exist. Each change applies at
- * once: the next call of the ability already sees it.
+ * Each change is an item of the di.xml pool `changes`, under the name the catalog page posts. A name no source
+ * offers is skipped, so a stale selection never stores anything for an ability that does not exist. Each change
+ * applies at once: the next call of the ability already sees it.
  */
 class ExposureChanges
 {
     /**
-     * Each change: the setting it sets and the value it sets it to
-     */
-    private const CHANGES = [
-        'deny' => ['setting' => 'deny', 'on' => true],
-        'allow' => ['setting' => 'deny', 'on' => false],
-        'confirm' => ['setting' => 'confirm', 'on' => true],
-        'unconfirm' => ['setting' => 'confirm', 'on' => false],
-    ];
-
-    /**
      * @param AbilityCatalogInterface $catalog
-     * @param AbilityOverrideRepositoryInterface $overrides
-     * @param AbilityOverrideInterfaceFactory $overrideFactory
+     * @param array<string,AbilityChangeInterface> $changes
      */
     public function __construct(
         private readonly AbilityCatalogInterface $catalog,
-        private readonly AbilityOverrideRepositoryInterface $overrides,
-        private readonly AbilityOverrideInterfaceFactory $overrideFactory
+        private readonly array $changes = []
     ) {
     }
 
     /**
-     * Whether a change of this code exists
+     * Whether a change of that name exists
      *
      * @param string $change
      * @return bool
      */
     public function exists(string $change): bool
     {
-        return isset(self::CHANGES[$change]);
+        return isset($this->changes[$change]);
     }
 
     /**
-     * Apply a change to every named ability; how many abilities it was applied to
+     * Apply the change to the named abilities that exist
      *
-     * @param string $change "deny", "allow", "confirm" or "unconfirm"
-     * @param list<string> $names
-     * @return int
-     * @throws \InvalidArgumentException When no change has that code
+     * @param string $change
+     * @param string[] $names
+     * @return int How many abilities were changed
+     * @throws \InvalidArgumentException When no change has that name
      * @throws CouldNotSaveException
      */
     public function apply(string $change, array $names): int
     {
-        $rule = self::CHANGES[$change] ?? throw new \InvalidArgumentException(
+        $apply = $this->changes[$change] ?? throw new \InvalidArgumentException(
             sprintf('No exposure change is called "%s".', $change)
         );
 
-        $applied = 0;
+        $existing = [];
         foreach (array_unique($names) as $name) {
             try {
-                $this->catalog->get($name);
+                $existing[] = $this->catalog->get($name)->getName();
             } catch (NoSuchEntityException) {
                 continue;
             }
-
-            $override = $this->overrides->get($name)
-                ?? $this->overrideFactory->create()->setAbility($name);
-            if ($rule['setting'] === 'deny') {
-                $override->setDenied($rule['on']);
-            } else {
-                $override->setNeedsConfirmation($rule['on']);
-            }
-            $this->overrides->save($override);
-            $applied++;
+        }
+        if ($existing !== []) {
+            $apply->apply($existing);
         }
 
-        return $applied;
+        return count($existing);
     }
 }

@@ -104,7 +104,9 @@ class JsonEncoderTest extends TestCase
             $catalog,
             new FixedExposurePolicy(Exposure::Exposed),
             $this->kit->argumentReader(),
-            $this->kit->toolResults()
+            $this->kit->toolResults(),
+            $this->kit->sections(),
+            $this->kit->personalDataPolicy
         );
 
         $answer = $this->kit->server([$tool])->handle(

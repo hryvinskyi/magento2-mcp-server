@@ -15,6 +15,50 @@
                 <read_only_mode>1</read_only_mode>
                 <expose_anonymous_abilities>0</expose_anonymous_abilities>
             </general>
+            <personal_data>
+                <hide>1</hide>
+                <fields>*email
+*firstname
+*middlename
+*lastname
+customer_name
+billing_name
+shipping_name
+nickname
+*telephone
+*phone
+fax
+*street
+*postcode
+city
+*full_address
+*dob
+*date_of_birth
+*taxvat
+*vat_id
+*gender
+company
+customer_note
+remote_ip
+x_forwarded_for
+*ip_address
+prefix
+suffix
+customer_prefix
+customer_suffix
+*postal_code
+user_name
+cc_owner
+cardholder_name
+echeck_account_name
+cc_last_4
+cc_number_enc
+additional_information
+*gift_message
+sender
+recipient
+shipping_label</fields>
+            </personal_data>
             <graphql>
                 <enabled>1</enabled>
                 <expose_mutations>0</expose_mutations>

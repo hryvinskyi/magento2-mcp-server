@@ -50,6 +50,11 @@ interface InvocationResultInterface
     public const DENIAL_ARGUMENT_GUARD = 'argument_guard';
 
     /**
+     * Denial reason: the ability belongs to a section of the catalog the admin switched off
+     */
+    public const DENIAL_SECTION_OFF = 'section_off';
+
+    /**
      * How the invocation ended
      *
      * @return InvocationOutcome

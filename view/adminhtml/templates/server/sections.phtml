@@ -1,0 +1,83 @@
+<?php
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+
+declare(strict_types=1);
+
+use Hryvinskyi\McpServer\ViewModel\SectionsOverview;
+use Magento\Backend\Block\Template;
+use Magento\Framework\Escaper;
+
+/**
+ * The sections card of the MCP Server page: each area of the store with its abilities, and a switch
+ *
+ * @var Template $block
+ * @var Escaper $escaper
+ */
+$overview = $block->getData('sections');
+if (!$overview instanceof SectionsOverview) {
+    return;
+}
+$canSwitch = $overview->canSwitch();
+?>
+<section class="mcp-card mcp-sections" aria-labelledby="mcp-sections-title">
+    <header class="mcp-card__header">
+        <h2 class="mcp-card__title" id="mcp-sections-title"><?= $escaper->escapeHtml(__('Sections')) ?></h2>
+        <span class="mcp-catalog__lead">
+            <?= $escaper->escapeHtml(__(
+                'Areas of the store, as the admin panel groups them. While a section is off, no client may call its '
+                . 'abilities.'
+            )) ?>
+        </span>
+    </header>
+    <table class="data-grid mcp-sections__table">
+        <thead>
+            <tr>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Section')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Modules')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Abilities')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Exposed')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('State')) ?></th>
+                <?php if ($canSwitch): ?>
+                    <th class="data-grid-th"><span class="admin__control-support-text">
+                        <?= $escaper->escapeHtml(__('Switch')) ?>
+                    </span></th>
+                <?php endif; ?>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($overview->sections() as $section): ?>
+                <tr class="<?= $section['off'] ? 'mcp-sections__row--off' : '' ?>">
+                    <td><strong><?= $escaper->escapeHtml($section['label']) ?></strong></td>
+                    <td class="mcp-sections__modules">
+                        <?= $escaper->escapeHtml(implode(', ', $section['modules'])) ?>
+                    </td>
+                    <td><?= (int) $section['abilities'] ?></td>
+                    <td><?= (int) $section['exposed'] ?></td>
+                    <td>
+                        <span class="mcp-status mcp-status--<?= $section['off'] ? 'denied' : 'exposed' ?>">
+                            <span class="mcp-status__dot" aria-hidden="true"></span>
+                            <?= $escaper->escapeHtml($section['off'] ? __('Off') : __('On')) ?>
+                        </span>
+                    </td>
+                    <?php if ($canSwitch): ?>
+                        <td>
+                            <form method="post" action="<?= $escaper->escapeUrl($overview->switchUrl($section)) ?>">
+                                <input type="hidden" name="form_key"
+                                       value="<?= $escaper->escapeHtmlAttr($block->getFormKey()) ?>">
+                                <input type="hidden" name="section"
+                                       value="<?= $escaper->escapeHtmlAttr($section['code']) ?>">
+                                <button type="submit" class="action-secondary">
+                                    <?= $escaper->escapeHtml($section['off'] ? __('Switch on') : __('Switch off')) ?>
+                                </button>
+                            </form>
+                        </td>
+                    <?php endif; ?>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</section>

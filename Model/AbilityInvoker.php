@@ -21,6 +21,7 @@ use Hryvinskyi\McpServer\Api\Data\InvocationResultInterfaceFactory;
 use Hryvinskyi\McpServer\Api\ExposurePolicyInterface;
 use Hryvinskyi\McpServer\Api\InvocationGuardInterface;
 use Hryvinskyi\McpServer\Api\InvocationListenerInterface;
+use Hryvinskyi\McpServer\Api\ResultFilterInterface;
 use Hryvinskyi\McpServer\Model\Catalog\AbilitySourceResolverInterface;
 use Hryvinskyi\McpServer\Model\Clock\ClockInterface;
 use Magento\Framework\Exception\LocalizedException;
@@ -36,7 +37,8 @@ use Psr\Log\LoggerInterface;
  * - Every listener in the di.xml pool `listeners` is told the invocation started.
  * - The exposure policy is asked. An ability it does not let through ends as denied with the reason the policy
  *   gives: `deny_list` for the deny-list, `read_only_mode` for an ability blocked by read-only mode,
- *   `anonymous_ability` for one anyone may call while such abilities are not exposed, or another rule's own code.
+ *   `anonymous_ability` for one anyone may call while such abilities are not exposed, `section_off` for one whose
+ *   section is switched off, or another rule's own code.
  * - The caller's ACL is asked of the source. A caller whose role lacks the ability's resources is denied with
  *   reason `acl`.
  * - An ability that needs a confirmation ends as needs_confirmation unless the invocation is confirmed.
@@ -45,6 +47,8 @@ use Psr\Log\LoggerInterface;
  * - Only then is the source asked to run the ability, so a refused call changes nothing. A LocalizedException ends
  *   as failed with its own message, which is meant for the client. Any other exception ends as failed with the message
  *   Magento's Web API would show for it, and an \Error with a generic one; both are logged, and neither leaks a trace.
+ * - The value a succeeded call returns passes every filter in the di.xml pool `resultFilters`, in order, so the
+ *   listeners and the client get the filtered value. A filter that throws ends the call as failed.
  * - Every listener is told how the invocation ended, whatever the outcome.
  *
  * A listener that throws is logged and skipped: it never changes the outcome, and the next listener is still called.
@@ -65,6 +69,7 @@ class AbilityInvoker implements AbilityInvokerInterface
      * @param LoggerInterface $logger
      * @param InvocationListenerInterface[] $listeners
      * @param InvocationGuardInterface[] $guards
+     * @param ResultFilterInterface[] $resultFilters
      */
     public function __construct(
         private readonly AbilityCatalogInterface $catalog,
@@ -75,7 +80,8 @@ class AbilityInvoker implements AbilityInvokerInterface
         private readonly ErrorProcessor $errorProcessor,
         private readonly LoggerInterface $logger,
         private readonly array $listeners = [],
-        private readonly array $guards = []
+        private readonly array $guards = [],
+        private readonly array $resultFilters = []
     ) {
     }
 
@@ -241,13 +247,13 @@ class AbilityInvoker implements AbilityInvokerInterface
     }
 
     /**
-     * Ask the source that offers the ability to run it
+     * Ask the source that offers the ability to run it, and pass what it returns through the result filters
      *
      * @param AbilityInterface $ability
      * @param InvocationInterface $invocation
      * @param float $startedAt
      * @return InvocationResultInterface
-     * @throws \Throwable Whatever the source throws
+     * @throws \Throwable Whatever the source or a filter throws
      */
     private function call(
         AbilityInterface $ability,
@@ -255,6 +261,9 @@ class AbilityInvoker implements AbilityInvokerInterface
         float $startedAt
     ): InvocationResultInterface {
         $value = $this->sourceResolver->sourceOf($ability)->invoke($ability, $invocation->getArguments());
+        foreach ($this->resultFilters as $filter) {
+            $value = $filter->filter($ability, $value);
+        }
 
         return $this->resultFactory->create([
             'outcome' => InvocationOutcome::Succeeded,

@@ -60,6 +60,12 @@ class ExposureStatusTest extends TestCase
                     null,
                 ],
             ],
+            'section off: switched on above, not here' => [
+                'denied',
+                'section_off',
+                false,
+                ['Denied: section off', 'A section it belongs to is switched off above.', 'denied', null],
+            ],
             'open to anyone' => [
                 'denied',
                 'anonymous_ability',
@@ -104,6 +110,9 @@ class ExposureStatusTest extends TestCase
             'reason' => $reason,
             'deniedHere' => $deniedHere,
             'confirmHere' => false,
+            'sections' => ['Magento_Catalog::catalog'],
+            'section' => 'Magento_Catalog::catalog',
+            'personalData' => 'hidden',
         ]);
 
         self::assertSame($expected, [$status['label'], $status['note'], $status['tone'], $status['change']]);

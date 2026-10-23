@@ -27,6 +27,7 @@
             <argument name="rules" xsi:type="array">
                 <item name="denyList" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\DenyListRule</item>
                 <item name="builtInDenyList" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\BuiltInDenyListRule</item>
+                <item name="sectionOff" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\SectionOffRule</item>
                 <item name="readOnlyMode" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\ReadOnlyModeRule</item>
                 <item name="anonymousAbility" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\AnonymousAbilityRule</item>
                 <item name="confirmation" xsi:type="object">Hryvinskyi\McpServer\Model\Exposure\Rule\ConfirmationRule</item>
@@ -93,6 +94,51 @@
             <argument name="guards" xsi:type="array">
                 <item name="customerPasswordHash" xsi:type="object">Hryvinskyi\McpServer\Model\Guard\CustomerPasswordHashGuard</item>
             </argument>
+            <!-- Result filters keyed by a name, applied in order to what a succeeded call returns -->
+            <argument name="resultFilters" xsi:type="array">
+                <item name="personalData" xsi:type="object">Hryvinskyi\McpServer\Model\PersonalData\HidePersonalData</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- Personal data in results: the policy, the abilities shown it, and the table that keeps them -->
+    <preference for="Hryvinskyi\McpServer\Api\PersonalDataPolicyInterface" type="Hryvinskyi\McpServer\Model\PersonalData\PersonalDataPolicy"/>
+    <preference for="Hryvinskyi\McpServer\Api\PersonalDataExceptionsInterface" type="Hryvinskyi\McpServer\Model\PersonalData\PersonalDataExceptions"/>
+    <virtualType name="HryvinskyiMcpServerPersonalDataShownNames" type="Hryvinskyi\McpServer\Model\ResourceModel\NameSet">
+        <arguments>
+            <argument name="table" xsi:type="string">hryvinskyi_mcp_personal_data_shown</argument>
+        </arguments>
+    </virtualType>
+    <type name="Hryvinskyi\McpServer\Model\PersonalData\PersonalDataExceptions">
+        <arguments>
+            <argument name="shown" xsi:type="object">HryvinskyiMcpServerPersonalDataShownNames</argument>
+        </arguments>
+    </type>
+
+    <!-- Sections of the catalog: areas of the ACL tree, and the table that keeps the ones switched off -->
+    <preference for="Hryvinskyi\McpServer\Api\SectionSwitchesInterface" type="Hryvinskyi\McpServer\Model\Section\SectionSwitches"/>
+    <virtualType name="HryvinskyiMcpServerSectionOffNames" type="Hryvinskyi\McpServer\Model\ResourceModel\NameSet">
+        <arguments>
+            <argument name="table" xsi:type="string">hryvinskyi_mcp_section_off</argument>
+        </arguments>
+    </virtualType>
+    <type name="Hryvinskyi\McpServer\Model\Section\SectionSwitches">
+        <arguments>
+            <argument name="off" xsi:type="object">HryvinskyiMcpServerSectionOffNames</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Section\AbilitySections">
+        <arguments>
+            <!-- Areas that hold unrelated parts of the store; each of their children is a section of its own -->
+            <argument name="split" xsi:type="array">
+                <item name="stores" xsi:type="string">Magento_Backend::stores</item>
+            </argument>
+            <!-- Sections of the resources that are not nodes of the ACL tree -->
+            <argument name="outside" xsi:type="array">
+                <item name="anonymous" xsi:type="string" translate="true">Open to anyone</item>
+                <item name="self" xsi:type="string" translate="true">The caller's own account</item>
+            </argument>
+            <argument name="otherLabel" xsi:type="string" translate="true">Other</argument>
         </arguments>
     </type>
     <type name="Hryvinskyi\McpServer\Model\Guard\CustomerPasswordHashGuard">
@@ -327,6 +373,48 @@
                 <item name="read_only_blocked" xsi:type="string" translate="true">Blocked: read-only mode</item>
                 <item name="denied" xsi:type="string" translate="true">Denied</item>
             </argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="Hryvinskyi\McpServer\Ui\Component\Listing\Options\PersonalDataOptions" type="Hryvinskyi\McpServer\Ui\Component\Listing\Options\LabelOptions">
+        <arguments>
+            <argument name="labels" xsi:type="array">
+                <item name="hidden" xsi:type="string" translate="true">Hidden</item>
+                <item name="shown" xsi:type="string" translate="true">Shown</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+    <!-- The changes the catalog page applies to the abilities a merchant selects, by the name the page posts -->
+    <type name="Hryvinskyi\McpServer\Model\Admin\ExposureChanges">
+        <arguments>
+            <argument name="changes" xsi:type="array">
+                <item name="deny" xsi:type="object">HryvinskyiMcpServerDenyChange</item>
+                <item name="allow" xsi:type="object">HryvinskyiMcpServerAllowChange</item>
+                <item name="confirm" xsi:type="object">HryvinskyiMcpServerConfirmChange</item>
+                <item name="unconfirm" xsi:type="object">HryvinskyiMcpServerUnconfirmChange</item>
+                <item name="show_personal_data" xsi:type="object">Hryvinskyi\McpServer\Model\Admin\Change\ShowPersonalDataChange</item>
+                <item name="hide_personal_data" xsi:type="object">Hryvinskyi\McpServer\Model\Admin\Change\HidePersonalDataChange</item>
+            </argument>
+        </arguments>
+    </type>
+    <virtualType name="HryvinskyiMcpServerDenyChange" type="Hryvinskyi\McpServer\Model\Admin\Change\DenyListChange">
+        <arguments>
+            <argument name="denied" xsi:type="boolean">true</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="HryvinskyiMcpServerAllowChange" type="Hryvinskyi\McpServer\Model\Admin\Change\DenyListChange">
+        <arguments>
+            <argument name="denied" xsi:type="boolean">false</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="HryvinskyiMcpServerConfirmChange" type="Hryvinskyi\McpServer\Model\Admin\Change\ConfirmationChange">
+        <arguments>
+            <argument name="confirmed" xsi:type="boolean">true</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="HryvinskyiMcpServerUnconfirmChange" type="Hryvinskyi\McpServer\Model\Admin\Change\ConfirmationChange">
+        <arguments>
+            <argument name="confirmed" xsi:type="boolean">false</argument>
         </arguments>
     </virtualType>
 </config>

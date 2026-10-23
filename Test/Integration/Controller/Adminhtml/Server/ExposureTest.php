@@ -11,6 +11,8 @@ namespace Hryvinskyi\McpServer\Test\Integration\Controller\Adminhtml\Server;
 
 use Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface;
 use Hryvinskyi\McpServer\Api\Data\AbilityOverrideInterface;
+use Hryvinskyi\McpServer\Api\PersonalDataExceptionsInterface;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\ForgetsStoredNames;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\Message\MessageInterface;
@@ -27,10 +29,13 @@ use Magento\TestFramework\TestCase\AbstractBackendController;
 #[DbIsolation(true)]
 class ExposureTest extends AbstractBackendController
 {
+    use ForgetsStoredNames;
     use SwitchesGraphQlSourceOff;
 
     private const LIST_PRODUCTS = 'catalog.product_repository.get_list';
     private const GET_PRODUCT = 'catalog.product_repository.get';
+    private const LIST_STORES = 'store.store_repository.get_list';
+    private const LIST_WEBSITES = 'store.website_repository.get_list';
 
     /**
      * @var string
@@ -109,6 +114,30 @@ class ExposureTest extends AbstractBackendController
         );
     }
 
+    public function testTheSelectedAbilitiesAreShownPersonalDataAndHiddenFromItAgain(): void
+    {
+        $this->post([
+            'change' => 'show_personal_data',
+            'namespace' => 'hryvinskyi_mcp_ability_listing',
+            'selected' => [self::LIST_STORES, self::LIST_WEBSITES, 'store.nothing.here'],
+        ]);
+
+        self::assertSame([self::LIST_STORES, self::LIST_WEBSITES], $this->personalDataExceptions()->shown());
+        $this->assertSessionMessages(
+            self::equalTo(['A total of 2 abilities were changed.']),
+            MessageInterface::TYPE_SUCCESS
+        );
+    }
+
+    public function testARowHidesPersonalDataFromItsAbilityAgain(): void
+    {
+        $this->personalDataExceptions()->show([self::LIST_STORES, self::LIST_WEBSITES]);
+
+        $this->post(['change' => 'hide_personal_data', 'name' => self::LIST_STORES]);
+
+        self::assertSame([self::LIST_WEBSITES], $this->personalDataExceptions()->shown());
+    }
+
     public function testAnUnknownChangeChangesNothing(): void
     {
         $this->post(['change' => 'erase', 'name' => self::LIST_PRODUCTS]);
@@ -130,6 +159,17 @@ class ExposureTest extends AbstractBackendController
         $request->setMethod(HttpRequest::METHOD_POST)->setParams($parameters)->setPostValue($parameters);
 
         $this->dispatch('backend/mcpserver/server/exposure');
+    }
+
+    /**
+     * @return PersonalDataExceptionsInterface
+     */
+    private function personalDataExceptions(): PersonalDataExceptionsInterface
+    {
+        $exceptions = Bootstrap::getObjectManager()->get(PersonalDataExceptionsInterface::class);
+        self::assertInstanceOf(PersonalDataExceptionsInterface::class, $exceptions);
+
+        return $exceptions;
     }
 
     /**

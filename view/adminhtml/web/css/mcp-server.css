@@ -293,3 +293,23 @@
 .mcp-acl--open {
     border-style: dashed;
 }
+
+/* Sections card */
+.mcp-sections__table {
+    margin: 0;
+    border: 0;
+}
+
+.mcp-sections__modules {
+    color: #6f6f6f;
+    font-size: 1.2rem;
+}
+
+.mcp-sections__row--off td {
+    background: #fbfbfb;
+    color: #6f6f6f;
+}
+
+.mcp-sections__table form {
+    margin: 0;
+}

@@ -133,6 +133,9 @@ class AbilityGridQueryTest extends TestCase
             'reason' => '',
             'deniedHere' => false,
             'confirmHere' => false,
+            'sections' => ['Magento_Catalog::catalog'],
+            'section' => 'Magento_Catalog::catalog',
+            'personalData' => 'hidden',
         ];
     }
 }

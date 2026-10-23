@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\McpServer\Test\Integration\Controller\Adminhtml\Server;
 
+use Hryvinskyi\McpServer\Api\PersonalDataExceptionsInterface;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\ForgetsStoredNames;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
-use Magento\Framework\Acl\Builder as AclBuilder;
 use Laminas\Http\Headers;
+use Magento\Framework\Acl\Builder as AclBuilder;
 use Magento\TestFramework\Fixture\Config;
 use Magento\TestFramework\Fixture\DbIsolation;
 use Magento\TestFramework\Helper\Bootstrap;
@@ -25,7 +27,13 @@ use Magento\TestFramework\TestCase\AbstractBackendController;
 #[DbIsolation(true)]
 class GridDataTest extends AbstractBackendController
 {
+    use ForgetsStoredNames;
     use SwitchesGraphQlSourceOff;
+
+    /**
+     * An ability that reads the store configuration, from the store's own module
+     */
+    private const SHOWN = 'store.store_config_manager.get_store_configs';
 
     /**
      * @var string
@@ -68,6 +76,21 @@ class GridDataTest extends AbstractBackendController
             $first['acl']
         );
         self::assertArrayNotHasKey('actions', $first, 'Read-only mode decides a blocked row: it offers no change');
+    }
+
+    public function testRowsSayTheirSectionAndWhetherPersonalDataIsShownAndAreFilteredByThem(): void
+    {
+        $exceptions = Bootstrap::getObjectManager()->get(PersonalDataExceptionsInterface::class);
+        self::assertInstanceOf(PersonalDataExceptionsInterface::class, $exceptions);
+        $exceptions->show([self::SHOWN]);
+
+        $shown = $this->render(['filters' => ['personalData' => 'shown', 'placeholder' => 'true']]);
+
+        self::assertSame(1, $shown['totalRecords']);
+        $row = $shown['items'][0];
+        self::assertIsArray($row);
+        self::assertSame([self::SHOWN, 'shown'], [$row['name'] ?? null, $row['personalData'] ?? null]);
+        self::assertSame('Magento_Backend::stores_settings', $row['section'] ?? null);
     }
 
     /**

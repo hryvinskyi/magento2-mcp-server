@@ -45,5 +45,23 @@
         "constraint": {
             "PRIMARY": true
         }
+    },
+    "hryvinskyi_mcp_section_off": {
+        "column": {
+            "name": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "hryvinskyi_mcp_personal_data_shown": {
+        "column": {
+            "name": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
     }
 }

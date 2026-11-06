@@ -39,7 +39,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ExecuteAbilityTest extends TestCase
 {
-    private const NAME = 'catalog.product_repository.get_list';
+    private const NAME = 'store.store_repository.get_list';
 
     /**
      * @var ProtocolKit
@@ -122,14 +122,14 @@ class ExecuteAbilityTest extends TestCase
     public function testAFailedCallIsAToolErrorWithTheInvokersMessage(): void
     {
         $invoker = $this->invoker(
-            $this->invocationResult(InvocationOutcome::Failed, 'The product that was requested doesn\'t exist.')
+            $this->invocationResult(InvocationOutcome::Failed, 'The store view that was requested doesn\'t exist.')
         );
 
         $result = $this->tool($invoker)->call(['name' => self::NAME], $this->kit->callContext());
 
         self::assertTrue($result['isError']);
         self::assertSame(
-            [['type' => 'text', 'text' => 'The product that was requested doesn\'t exist.']],
+            [['type' => 'text', 'text' => 'The store view that was requested doesn\'t exist.']],
             $result['content']
         );
     }
@@ -275,7 +275,7 @@ class ExecuteAbilityTest extends TestCase
 
         $this->confirmationError(
             $tool,
-            ['name' => 'catalog.product_repository.save', 'confirmationToken' => $token],
+            ['name' => 'store.store_repository.save', 'confirmationToken' => $token],
             $session
         );
 
@@ -342,7 +342,7 @@ class ExecuteAbilityTest extends TestCase
             throw new NoSuchEntityException(new Phrase('No ability "%1".', [$invocation->getAbilityName()]));
         });
 
-        $result = $this->tool($invoker)->call(['name' => 'catalog.nothing.here'], $this->kit->callContext());
+        $result = $this->tool($invoker)->call(['name' => 'store.nothing.here'], $this->kit->callContext());
 
         self::assertTrue($result['isError']);
         self::assertIsArray($result['content']);

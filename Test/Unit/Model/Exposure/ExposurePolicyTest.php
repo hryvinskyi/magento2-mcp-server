@@ -42,7 +42,7 @@ use PHPUnit\Framework\TestCase;
 class ExposurePolicyTest extends TestCase
 {
     private const BUILT_IN_DENIED_NAME = 'integration.admin_token_service.create_admin_access_token';
-    private const ORDINARY_NAME = 'catalog.product_repository.get_list';
+    private const ORDINARY_NAME = 'store.store_repository.get_list';
 
     /**
      * Every combination of the settings, under every order of the rules
@@ -131,7 +131,7 @@ class ExposurePolicyTest extends TestCase
         }
 
         $decision = $this->policy($rules)->decisionOf(
-            $this->ability($name, $access, $anonymousDenied ? ['anonymous'] : ['Magento_Catalog::products'])
+            $this->ability($name, $access, $anonymousDenied ? ['anonymous'] : ['Magento_Backend::stores'])
         );
 
         [$exposure, $reason] = $this->expected(
@@ -338,8 +338,16 @@ class ExposurePolicyTest extends TestCase
     private function ability(
         string $name,
         AbilityAccess $access,
-        array $aclResources = ['Magento_Catalog::products']
+        array $aclResources = ['Magento_Backend::stores']
     ): AbilityInterface {
-        return new Ability($name, 'Title', 'Magento_Catalog', 'webapi', 'GET /V1/products', $access, $aclResources);
+        return new Ability(
+            $name,
+            'Title',
+            'Magento_Store',
+            'webapi',
+            'GET /V1/store/storeViews',
+            $access,
+            $aclResources
+        );
     }
 }

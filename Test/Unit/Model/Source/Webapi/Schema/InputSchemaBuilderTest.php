@@ -235,23 +235,23 @@ class InputSchemaBuilderTest extends TestCase
     public function testASaveRequiresTheRecordAtTheTopAndNothingInsideIt(): void
     {
         $schema = $this->build('save', [
-            'product' => $this->parameter('CatalogDataProductInterface', true, ''),
+            'store' => $this->parameter('StoreDataStoreInterface', true, ''),
             'saveOptions' => $this->parameter('boolean', false, '', false),
         ], [
-            'CatalogDataProductInterface' => $this->type('Product.', [
-                'sku' => $this->field('string', 'Sku'),
+            'StoreDataStoreInterface' => $this->type('Store view.', [
+                'code' => $this->field('string', 'Code'),
                 'name' => $this->field('string', 'Name'),
-                'extension_attributes' => $this->field('CatalogDataProductExtensionInterface', ''),
+                'extension_attributes' => $this->field('StoreDataStoreExtensionInterface', ''),
             ]),
-            'CatalogDataProductExtensionInterface' => $this->type('Extension.', [
+            'StoreDataStoreExtensionInterface' => $this->type('Extension.', [
                 'website_ids' => $this->field('int[]', ''),
             ]),
         ]);
 
-        self::assertSame(['product'], $schema['required']);
-        $product = $this->arrayAt($schema, 'properties', 'product');
-        self::assertArrayNotHasKey('required', $product);
-        self::assertArrayNotHasKey('required', $this->arrayAt($product, 'properties', 'extension_attributes'));
+        self::assertSame(['store'], $schema['required']);
+        $store = $this->arrayAt($schema, 'properties', 'store');
+        self::assertArrayNotHasKey('required', $store);
+        self::assertArrayNotHasKey('required', $this->arrayAt($store, 'properties', 'extension_attributes'));
     }
 
     public function testAnUpdateRouteTakesTheRecordIdOfItsPathAsAnOptionalProperty(): void

@@ -25,7 +25,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The catalog's index over its sources: lookup, search and paging, collisions, and delegation to the owning source
+ * The ability catalog's index over its sources: lookup, search, paging, collisions, delegation to the owning source
  */
 class AbilityCatalogTest extends TestCase
 {
@@ -41,14 +41,14 @@ class AbilityCatalogTest extends TestCase
 
     public function testGetFindsAnAbilityOfAnySource(): void
     {
-        $products = $this->ability('catalog.product_repository.get_list', 'webapi');
+        $storeViews = $this->ability('store.store_repository.get_list', 'webapi');
         $orders = $this->ability('sales.order_repository.get', 'other');
         $catalog = $this->catalog([
-            'webapi' => new FakeAbilitySource('webapi', [$products]),
+            'webapi' => new FakeAbilitySource('webapi', [$storeViews]),
             'other' => new FakeAbilitySource('other', [$orders]),
         ]);
 
-        self::assertSame($products, $catalog->get('catalog.product_repository.get_list'));
+        self::assertSame($storeViews, $catalog->get('store.store_repository.get_list'));
         self::assertSame($orders, $catalog->get('sales.order_repository.get'));
     }
 
@@ -57,41 +57,41 @@ class AbilityCatalogTest extends TestCase
         $catalog = $this->catalog(['webapi' => new FakeAbilitySource('webapi', [])]);
 
         $this->expectException(NoSuchEntityException::class);
-        $this->expectExceptionMessage('There is no ability named "catalog.nothing.here".');
+        $this->expectExceptionMessage('There is no ability named "store.nothing.here".');
 
-        $catalog->get('catalog.nothing.here');
+        $catalog->get('store.nothing.here');
     }
 
     public function testTheSourcesAreListedOncePerRequestAndAgainAfterAReset(): void
     {
-        $source = new FakeAbilitySource('webapi', [$this->ability('catalog.product_repository.get', 'webapi')]);
+        $source = new FakeAbilitySource('webapi', [$this->ability('store.store_repository.get', 'webapi')]);
         $catalog = $this->catalog(['webapi' => $source]);
 
-        $catalog->get('catalog.product_repository.get');
+        $catalog->get('store.store_repository.get');
         $catalog->search('', null, null, 10, 0);
-        $catalog->isAllowed($catalog->get('catalog.product_repository.get'));
+        $catalog->isAllowed($catalog->get('store.store_repository.get'));
         self::assertSame(1, $source->listings);
 
         $catalog->_resetState();
-        $catalog->get('catalog.product_repository.get');
+        $catalog->get('store.store_repository.get');
         self::assertSame(2, $source->listings);
     }
 
     public function testOnACollisionTheFirstSourceKeepsTheNameAndTheOtherIsLogged(): void
     {
-        $first = $this->ability('catalog.product_repository.get', 'webapi', 'From the first source');
-        $second = $this->ability('catalog.product_repository.get', 'other', 'From the second source');
+        $first = $this->ability('store.store_repository.get', 'webapi', 'From the first source');
+        $second = $this->ability('store.store_repository.get', 'other', 'From the second source');
         $firstSource = new FakeAbilitySource('webapi', [$first]);
         $secondSource = new FakeAbilitySource('other', [$second]);
         $catalog = $this->catalog(['webapi' => $firstSource, 'other' => $secondSource]);
 
-        self::assertSame($first, $catalog->get('catalog.product_repository.get'));
+        self::assertSame($first, $catalog->get('store.store_repository.get'));
         self::assertSame($firstSource, $catalog->sourceOf($first));
         self::assertSame('webapi', $catalog->schemaOf($first)['description']);
         self::assertSame(1, $catalog->search('', null, null, 10, 0)->getTotal());
         self::assertSame(
             [
-                'MCP ability "catalog.product_repository.get" of source "other" is skipped: '
+                'MCP ability "store.store_repository.get" of source "other" is skipped: '
                 . 'source "webapi" already offers an ability of that name.',
             ],
             $this->logger->messages('warning')
@@ -101,28 +101,28 @@ class AbilityCatalogTest extends TestCase
     public function testTheLosingAbilityOfACollisionIsOfferedByNoSource(): void
     {
         $catalog = $this->catalog([
-            'webapi' => new FakeAbilitySource('webapi', [$this->ability('catalog.product_repository.get', 'webapi')]),
-            'other' => new FakeAbilitySource('other', [$this->ability('catalog.product_repository.get', 'other')]),
+            'webapi' => new FakeAbilitySource('webapi', [$this->ability('store.store_repository.get', 'webapi')]),
+            'other' => new FakeAbilitySource('other', [$this->ability('store.store_repository.get', 'other')]),
         ]);
 
         $this->expectException(NoSuchEntityException::class);
 
-        $catalog->schemaOf($this->ability('catalog.product_repository.get', 'other'));
+        $catalog->schemaOf($this->ability('store.store_repository.get', 'other'));
     }
 
     public function testAnAbilityThatNamesAnotherSourceIsSkippedAndLogged(): void
     {
         $catalog = $this->catalog([
             'webapi' => new FakeAbilitySource('webapi', [
-                $this->ability('catalog.product_repository.get', 'graphql'),
-                $this->ability('catalog.product_repository.save', 'webapi'),
+                $this->ability('store.store_repository.get', 'graphql'),
+                $this->ability('store.store_repository.save', 'webapi'),
             ]),
         ]);
 
-        self::assertSame(['catalog.product_repository.save'], $this->names($catalog->search('', null, null, 10, 0)));
+        self::assertSame(['store.store_repository.save'], $this->names($catalog->search('', null, null, 10, 0)));
         self::assertSame(
             [
-                'MCP ability "catalog.product_repository.get" is skipped: source "webapi" listed it, '
+                'MCP ability "store.store_repository.get" is skipped: source "webapi" listed it, '
                 . 'but the ability names source "graphql".',
             ],
             $this->logger->messages('warning')
@@ -131,7 +131,7 @@ class AbilityCatalogTest extends TestCase
 
     public function testSchemaAndAclAreAskedOfTheOwningSource(): void
     {
-        $allowed = $this->ability('catalog.product_repository.get', 'webapi');
+        $allowed = $this->ability('store.store_repository.get', 'webapi');
         $refused = $this->ability('sales.order_repository.get', 'other');
         $catalog = $this->catalog([
             'webapi' => new FakeAbilitySource('webapi', [$allowed], true),
@@ -150,10 +150,10 @@ class AbilityCatalogTest extends TestCase
 
         $this->expectException(NoSuchEntityException::class);
         $this->expectExceptionMessage(
-            'No source offers the ability "catalog.product_repository.get" of source "webapi".'
+            'No source offers the ability "store.store_repository.get" of source "webapi".'
         );
 
-        $catalog->isAllowed($this->ability('catalog.product_repository.get', 'webapi'));
+        $catalog->isAllowed($this->ability('store.store_repository.get', 'webapi'));
     }
 
     public function testAnEmptyQueryListsEveryAbilitySortedByName(): void
@@ -165,11 +165,11 @@ class AbilityCatalogTest extends TestCase
         self::assertSame(5, $page->getTotal());
         self::assertSame(
             [
-                'catalog.category_repository.get',
-                'catalog.product_repository.delete_by_id',
-                'catalog.product_repository.get_list',
                 'directory.country_information_acquirer.get_countries_info',
                 'sales.order_repository.save',
+                'store.store_repository.delete_by_id',
+                'store.store_repository.get_list',
+                'store.website_repository.get',
             ],
             $this->names($page)
         );
@@ -186,11 +186,11 @@ class AbilityCatalogTest extends TestCase
             'a word of the category' => ['magento_directory', [
                 'directory.country_information_acquirer.get_countries_info',
             ]],
-            'two words, both required' => ['product list', ['catalog.product_repository.get_list']],
-            'two words from different fields' => ['magento_catalog delete', [
-                'catalog.product_repository.delete_by_id',
+            'two words, both required' => ['view list', ['store.store_repository.get_list']],
+            'two words from different fields' => ['magento_store delete', [
+                'store.store_repository.delete_by_id',
             ]],
-            'surrounding whitespace' => ["  category\t", ['catalog.category_repository.get']],
+            'surrounding whitespace' => ["  website\t", ['store.website_repository.get']],
             'a word nothing holds' => ['invoice', []],
             'a word only the source reference holds' => ['v1', []],
         ];
@@ -212,13 +212,13 @@ class AbilityCatalogTest extends TestCase
 
     public function testTheCategoryFilterIgnoresCase(): void
     {
-        $page = $this->searchableCatalog()->search('', 'magento_catalog', null, 100, 0);
+        $page = $this->searchableCatalog()->search('', 'magento_store', null, 100, 0);
 
         self::assertSame(
             [
-                'catalog.category_repository.get',
-                'catalog.product_repository.delete_by_id',
-                'catalog.product_repository.get_list',
+                'store.store_repository.delete_by_id',
+                'store.store_repository.get_list',
+                'store.website_repository.get',
             ],
             $this->names($page)
         );
@@ -233,17 +233,17 @@ class AbilityCatalogTest extends TestCase
             $this->names($catalog->search('', null, AbilityAccess::Write, 100, 0))
         );
         self::assertSame(
-            ['catalog.product_repository.delete_by_id'],
-            $this->names($catalog->search('', 'Magento_Catalog', AbilityAccess::Delete, 100, 0))
+            ['store.store_repository.delete_by_id'],
+            $this->names($catalog->search('', 'Magento_Store', AbilityAccess::Delete, 100, 0))
         );
     }
 
     public function testFiltersAndQueryCombine(): void
     {
-        $page = $this->searchableCatalog()->search('repository', 'Magento_Catalog', AbilityAccess::Read, 100, 0);
+        $page = $this->searchableCatalog()->search('repository', 'Magento_Store', AbilityAccess::Read, 100, 0);
 
         self::assertSame(
-            ['catalog.category_repository.get', 'catalog.product_repository.get_list'],
+            ['store.store_repository.get_list', 'store.website_repository.get'],
             $this->names($page)
         );
     }
@@ -258,14 +258,14 @@ class AbilityCatalogTest extends TestCase
         $beyond = $catalog->search('', null, null, 2, 10);
 
         self::assertSame(
-            ['catalog.category_repository.get', 'catalog.product_repository.delete_by_id'],
+            ['directory.country_information_acquirer.get_countries_info', 'sales.order_repository.save'],
             $this->names($first)
         );
         self::assertSame(
-            ['catalog.product_repository.get_list', 'directory.country_information_acquirer.get_countries_info'],
+            ['store.store_repository.delete_by_id', 'store.store_repository.get_list'],
             $this->names($second)
         );
-        self::assertSame(['sales.order_repository.save'], $this->names($last));
+        self::assertSame(['store.website_repository.get'], $this->names($last));
         self::assertSame([], $this->names($beyond));
         foreach ([$first, $second, $last, $beyond] as $page) {
             self::assertSame(5, $page->getTotal());
@@ -301,7 +301,7 @@ class AbilityCatalogTest extends TestCase
     }
 
     /**
-     * A catalog of five abilities from two sources, listed out of order
+     * An ability catalog of five abilities from two sources, listed out of order
      *
      * @return AbilityCatalog
      */
@@ -316,12 +316,12 @@ class AbilityCatalogTest extends TestCase
                     'Magento_Sales',
                     AbilityAccess::Write
                 ),
-                $this->ability('catalog.product_repository.get_list', 'webapi', 'Product list', 'Magento_Catalog'),
+                $this->ability('store.store_repository.get_list', 'webapi', 'Store view list', 'Magento_Store'),
                 $this->ability(
-                    'catalog.product_repository.delete_by_id',
+                    'store.store_repository.delete_by_id',
                     'webapi',
-                    'Remove a product',
-                    'Magento_Catalog',
+                    'Remove a store view',
+                    'Magento_Store',
                     AbilityAccess::Delete
                 ),
             ]),
@@ -332,7 +332,7 @@ class AbilityCatalogTest extends TestCase
                     'Countries',
                     'Magento_Directory'
                 ),
-                $this->ability('catalog.category_repository.get', 'other', 'One category', 'Magento_Catalog'),
+                $this->ability('store.website_repository.get', 'other', 'One website', 'Magento_Store'),
             ]),
         ]);
     }
@@ -362,7 +362,7 @@ class AbilityCatalogTest extends TestCase
         string $name,
         string $source,
         string $title = 'Ability',
-        string $category = 'Magento_Catalog',
+        string $category = 'Magento_Store',
         AbilityAccess $access = AbilityAccess::Read
     ): AbilityInterface {
         return new Ability($name, $title, $category, $source, 'GET /V1/' . $name, $access);

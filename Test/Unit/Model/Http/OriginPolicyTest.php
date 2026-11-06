@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Hryvinskyi\McpServer\Test\Unit\Model\Http;
 
 use Hryvinskyi\McpServer\Model\Http\OriginPolicy;
+use Hryvinskyi\McpServer\Model\Http\UrlHost;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\ScopeInterface;
@@ -88,7 +89,7 @@ class OriginPolicyTest extends TestCase
     {
         $storeManager = $this->storeManager();
         $storeManager->expects(self::exactly(2))->method('getStores')->with(true);
-        $policy = new OriginPolicy($storeManager, $this->scopeConfig());
+        $policy = new OriginPolicy($storeManager, $this->scopeConfig(), new UrlHost());
 
         $policy->allows('http://shop.example');
         $policy->allows('http://rebound.example');
@@ -101,7 +102,7 @@ class OriginPolicyTest extends TestCase
      */
     private function policy(): OriginPolicy
     {
-        return new OriginPolicy($this->storeManager(), $this->scopeConfig());
+        return new OriginPolicy($this->storeManager(), $this->scopeConfig(), new UrlHost());
     }
 
     /**

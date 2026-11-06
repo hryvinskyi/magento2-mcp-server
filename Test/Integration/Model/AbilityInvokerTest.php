@@ -46,10 +46,10 @@ class AbilityInvokerTest extends TestCase
     use BlocksRealGraphQlClient;
     use SwitchesGraphQlSourceOff;
 
-    private const READ = 'catalog.product_repository.get_list';
-    private const WRITE = 'catalog.product_repository.save';
+    private const READ = 'store.store_repository.get_list';
+    private const WRITE = 'hryvinskyi_mcp_test.fixture.save';
     private const CUSTOMER_SAVE = 'customer.customer_repository.save';
-    private const ANONYMOUS = 'directory.country_information_acquirer.get_countries_info';
+    private const ANONYMOUS = 'hryvinskyi_mcp_test.fixture.anonymous_read';
 
     /**
      * @var FakeAbilitySource
@@ -280,9 +280,9 @@ class AbilityInvokerTest extends TestCase
         return $factory->create([
             'name' => $name,
             'title' => 'Ability',
-            'category' => 'Magento_Catalog',
+            'category' => 'Magento_Store',
             'source' => 'test',
-            'sourceReference' => 'GET /V1/products',
+            'sourceReference' => 'GET /V1/store/storeViews',
             'access' => $access,
             'aclResources' => $aclResources,
         ]);

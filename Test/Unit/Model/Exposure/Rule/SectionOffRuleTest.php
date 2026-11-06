@@ -29,8 +29,8 @@ class SectionOffRuleTest extends TestCase
         self::assertSame(
             [Exposure::Denied, null, 'section_off'],
             [
-                $rule->exposureOf($this->ability(['Magento_Catalog::products', 'Magento_InventoryApi::source'])),
-                $rule->exposureOf($this->ability(['Magento_Catalog::products'])),
+                $rule->exposureOf($this->ability(['Magento_User::acl_users', 'Magento_InventoryApi::source'])),
+                $rule->exposureOf($this->ability(['Magento_User::acl_users'])),
                 $rule->denialReason(),
             ]
         );
@@ -38,7 +38,7 @@ class SectionOffRuleTest extends TestCase
 
     public function testNothingIsOffSoTheRuleHasNoSay(): void
     {
-        self::assertNull($this->rule([])->exposureOf($this->ability(['Magento_Catalog::products'])));
+        self::assertNull($this->rule([])->exposureOf($this->ability(['Magento_User::acl_users'])));
     }
 
     /**

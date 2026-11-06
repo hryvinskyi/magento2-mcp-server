@@ -100,18 +100,18 @@ class ExposureStatusTest extends TestCase
         array $expected
     ): void {
         $status = (new ExposureStatus())->of([
-            'name' => 'catalog.product_repository.save',
-            'title' => 'Save a product',
+            'name' => 'store.store_repository.save',
+            'title' => 'Save a store view',
             'source' => 'webapi',
-            'category' => 'Magento_Catalog',
+            'category' => 'Magento_Store',
             'access' => 'write',
-            'aclResources' => ['Magento_Catalog::products'],
+            'aclResources' => ['Magento_Backend::stores'],
             'exposure' => $exposure,
             'reason' => $reason,
             'deniedHere' => $deniedHere,
             'confirmHere' => false,
-            'sections' => ['Magento_Catalog::catalog'],
-            'section' => 'Magento_Catalog::catalog',
+            'sections' => ['Magento_Backend::stores'],
+            'section' => 'Magento_Backend::stores',
             'personalData' => 'hidden',
         ]);
 

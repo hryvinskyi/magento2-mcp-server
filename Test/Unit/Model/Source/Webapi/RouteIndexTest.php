@@ -22,7 +22,7 @@ use PHPUnit\Framework\TestCase;
  */
 class RouteIndexTest extends TestCase
 {
-    private const PRODUCTS = 'Magento\Catalog\Api\ProductRepositoryInterface';
+    private const STORES = 'Magento\Store\Api\StoreRepositoryInterface';
 
     /**
      * @var RecordingLogger
@@ -37,10 +37,10 @@ class RouteIndexTest extends TestCase
     public function testARouteCarriesItsServiceVersionResourcesAsAListAndParameters(): void
     {
         $routes = $this->index([
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(
-                self::PRODUCTS,
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(
+                self::STORES,
                 'getList',
-                ['Magento_Catalog::products', 'Magento_Backend::admin'],
+                ['Magento_Backend::stores', 'Magento_Backend::admin'],
                 ['storeId' => false],
                 50
             )],
@@ -48,13 +48,13 @@ class RouteIndexTest extends TestCase
 
         self::assertCount(1, $routes);
         $route = $routes[0];
-        self::assertSame('/V1/products', $route->getUrl());
+        self::assertSame('/V1/store/storeViews', $route->getUrl());
         self::assertSame('GET', $route->getHttpMethod());
-        self::assertSame(self::PRODUCTS, $route->getServiceClass());
+        self::assertSame(self::STORES, $route->getServiceClass());
         self::assertSame('getList', $route->getServiceMethod());
         self::assertSame('V1', $route->getVersion());
-        self::assertSame('GET /V1/products', $route->getReference());
-        self::assertSame(['Magento_Catalog::products', 'Magento_Backend::admin'], $route->getAclResources());
+        self::assertSame('GET /V1/store/storeViews', $route->getReference());
+        self::assertSame(['Magento_Backend::stores', 'Magento_Backend::admin'], $route->getAclResources());
         self::assertSame(50, $route->getInputArraySizeLimit());
         self::assertSame(['storeId' => ['force' => false, 'value' => '%customer_id%']], $route->getParameters());
         self::assertSame([], $route->getForcedParameterNames());
@@ -64,7 +64,7 @@ class RouteIndexTest extends TestCase
     public function testARouteKeepsItsSecureFlag(): void
     {
         $routes = $this->index([
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'getList', secure: true)],
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'getList', secure: true)],
         ])->routes();
 
         self::assertTrue($routes[0]->isSecure());
@@ -73,46 +73,46 @@ class RouteIndexTest extends TestCase
     public function testTheRouteWithFewerForcedParametersWins(): void
     {
         $routes = $this->index([
-            '/V1/a' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'get', forced: ['sku' => true])],
-            '/V1/products/long/path' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'get')],
+            '/V1/a' => ['GET' => FakeWebapiConfig::route(self::STORES, 'get', forced: ['id' => true])],
+            '/V1/store/storeViews/long/path' => ['GET' => FakeWebapiConfig::route(self::STORES, 'get')],
         ])->routes();
 
-        self::assertSame(['/V1/products/long/path'], $this->urls($routes));
+        self::assertSame(['/V1/store/storeViews/long/path'], $this->urls($routes));
     }
 
     public function testOnATieTheLowerVersionWins(): void
     {
         $routes = $this->index([
-            '/V2/p' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'get')],
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'get')],
+            '/V2/p' => ['GET' => FakeWebapiConfig::route(self::STORES, 'get')],
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'get')],
         ])->routes();
 
-        self::assertSame(['/V1/products'], $this->urls($routes));
+        self::assertSame(['/V1/store/storeViews'], $this->urls($routes));
     }
 
     public function testOnATieOfVersionTheShorterUrlWins(): void
     {
         $routes = $this->index([
-            '/V1/products/:sku' => ['PUT' => FakeWebapiConfig::route(self::PRODUCTS, 'save')],
-            '/V1/products' => ['POST' => FakeWebapiConfig::route(self::PRODUCTS, 'save')],
+            '/V1/store/storeViews/:id' => ['PUT' => FakeWebapiConfig::route(self::STORES, 'save')],
+            '/V1/store/storeViews' => ['POST' => FakeWebapiConfig::route(self::STORES, 'save')],
         ])->routes();
 
         self::assertCount(1, $routes);
-        self::assertSame('POST /V1/products', $routes[0]->getReference());
+        self::assertSame('POST /V1/store/storeViews', $routes[0]->getReference());
     }
 
     public function testRoutesOfDifferentMethodsAreAllKeptAndSortedByUrl(): void
     {
         $routes = $this->index([
-            '/V1/products/:sku' => [
-                'GET' => FakeWebapiConfig::route(self::PRODUCTS, 'get'),
-                'DELETE' => FakeWebapiConfig::route(self::PRODUCTS, 'deleteById'),
+            '/V1/store/storeViews/:id' => [
+                'GET' => FakeWebapiConfig::route(self::STORES, 'get'),
+                'DELETE' => FakeWebapiConfig::route(self::STORES, 'deleteById'),
             ],
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'getList')],
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'getList')],
         ])->routes();
 
         self::assertSame(
-            ['GET /V1/products', 'DELETE /V1/products/:sku', 'GET /V1/products/:sku'],
+            ['GET /V1/store/storeViews', 'DELETE /V1/store/storeViews/:id', 'GET /V1/store/storeViews/:id'],
             array_map(static fn (Route $route): string => $route->getReference(), $routes)
         );
     }
@@ -153,25 +153,25 @@ class RouteIndexTest extends TestCase
         $routes = $this->index(
             [
                 '/V1/mcp' => ['POST' => FakeWebapiConfig::route('Acme\Mcp\Api\EndpointInterface', 'handle')],
-                '/V1/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'getList')],
+                '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'getList')],
             ],
             ['\Acme\Mcp\Api\EndpointInterface']
         )->routes();
 
-        self::assertSame(['/V1/products'], $this->urls($routes));
+        self::assertSame(['/V1/store/storeViews'], $this->urls($routes));
     }
 
     public function testAnIncompleteOrUnversionedRouteIsLoggedAndSkipped(): void
     {
         $routes = $this->index([
-            '/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'getList')],
+            '/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'getList')],
             '/V1/broken' => ['GET' => ['service' => [], 'resources' => []]],
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'get')],
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'get')],
         ])->routes();
 
-        self::assertSame(['/V1/products'], $this->urls($routes));
+        self::assertSame(['/V1/store/storeViews'], $this->urls($routes));
         self::assertCount(2, $this->logger->messages('warning'));
-        self::assertStringContainsString('GET /products', $this->logger->messages('warning')[0]);
+        self::assertStringContainsString('GET /store/storeViews', $this->logger->messages('warning')[0]);
     }
 
     /**

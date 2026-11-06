@@ -29,7 +29,11 @@ use Magento\Framework\Exception\FileSystemException;
  * - Every other line is the standard input of a new message process, started from an argument list (never a shell
  *   string) with PHP's errors sent to standard error, the admin's login and the session once one is known.
  * - The process answers with one envelope line (see Envelope). Its body, when not empty, is written to the output as
- *   one line; the session id it announces is kept when it is a session id.
+ *   one line; the session id it announces is kept when it is a session id. A body that is one error with the id null
+ *   (the server refused the line as a whole: the session is lost or missing, the message is too large, the message
+ *   process failed and answered with an Internal error) is written once for each request of the line with the
+ *   request's own id, so the client does not wait for its request until its own timeout; a line without requests
+ *   gets nothing (see MessageLines).
  * - A process that exits with the message command's refusal code refused the caller (the admin lost access, the
  *   server was turned off): the loop exits 1 and ends nothing. A process that exits with any other code, runs past
  *   its time limit or writes no valid envelope failed this one message: the line is answered with Internal errors
@@ -38,7 +42,7 @@ use Magento\Framework\Exception\FileSystemException;
  *   `initialize` line that opened it, that line is sent again with no session (followed by the client's
  *   `notifications/initialized` line when it sent one), their answers are dropped, the new session is kept, and the
  *   lost line is sent once more in it. When the session cannot be opened again, or the line finds it lost once more,
- *   the line's original answer is written.
+ *   the line's original answer is written, addressed to the line's requests like any other refusal.
  * - Whatever a process writes to its standard error is copied to the loop's standard error.
  * - At the end of the input, the session, when one is known, is ended by one more process, and the loop exits 0.
  *
@@ -162,7 +166,7 @@ class StdioLoop
             return;
         }
 
-        $this->writeLine($output, $envelope['body']);
+        $this->writeLine($output, $this->messageLines->addressed($line, $envelope['body']));
         if (preg_match(Session::ID_PATTERN, $envelope['sessionId']) === 1) {
             if ($this->messageLines->opensSession($line)) {
                 $session->opened($envelope['sessionId'], $line);

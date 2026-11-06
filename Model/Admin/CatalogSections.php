@@ -20,6 +20,7 @@ use Hryvinskyi\McpServer\Model\Section\AbilitySections;
  * A section switched off whose abilities are all gone (their module was removed) is still listed, so it can be
  * switched on again.
  *
+ * @phpstan-import-type AbilityRow from AbilityRows
  * @phpstan-type SectionRow array{
  *     code: string,
  *     label: string,
@@ -50,11 +51,50 @@ class CatalogSections
      */
     public function all(): array
     {
+        return $this->fromRows($this->rows->all());
+    }
+
+    /**
+     * Every section, by label, counted again from the catalog
+     *
+     * For a caller that switched a section earlier in the same request: rows read before the switch would not show
+     * its counts.
+     *
+     * @return list<SectionRow>
+     */
+    public function recounted(): array
+    {
+        return $this->recountedWithTotal()['sections'];
+    }
+
+    /**
+     * Every section and the page's total of abilities a client may call, both counted from one fresh read
+     *
+     * The rows are read again once, and the sections and the total come from that same read, so the total can never
+     * be the one from before a switch made earlier in the request.
+     *
+     * @return array{sections: list<SectionRow>, exposed: int}
+     */
+    public function recountedWithTotal(): array
+    {
+        $rows = $this->rows->recount();
+
+        return ['sections' => $this->fromRows($rows), 'exposed' => $this->rows->exposedCount()];
+    }
+
+    /**
+     * The sections of these ability rows, by label, with every section switched off listed too
+     *
+     * @param list<AbilityRow> $rows
+     * @return list<SectionRow>
+     */
+    private function fromRows(array $rows): array
+    {
         $sections = [];
         foreach ($this->switches->off() as $code) {
             $sections[$code] = $this->blank($code);
         }
-        foreach ($this->rows->all() as $row) {
+        foreach ($rows as $row) {
             foreach ($row['sections'] as $code) {
                 $section = $sections[$code] ?? $this->blank($code);
                 $section['abilities']++;

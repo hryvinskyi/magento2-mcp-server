@@ -39,10 +39,10 @@ class ExposurePolicyTest extends TestCase
     use BlocksRealGraphQlClient;
     use SwitchesGraphQlSourceOff;
 
-    private const WRITE = 'catalog.product_repository.save';
-    private const READ = 'catalog.product_repository.get_list';
+    private const WRITE = 'hryvinskyi_mcp_test.fixture.save';
+    private const READ = 'store.store_repository.get_list';
     private const TOKEN_ISSUER = 'integration.admin_token_service.create_admin_access_token';
-    private const ANONYMOUS = 'directory.country_information_acquirer.get_countries_info';
+    private const ANONYMOUS = 'hryvinskyi_mcp_test.fixture.anonymous_read';
 
     /**
      * The shared repository keeps what it read; a previous test's rows were rolled back under it
@@ -176,7 +176,7 @@ class ExposurePolicyTest extends TestCase
     public function testAnAbilityThatNeedsMoreThanAnonymousIsNotTouchedByTheSetting(): void
     {
         $decision = $this->policy()->decisionOf(
-            $this->ability(self::READ, AbilityAccess::Read, ['anonymous', 'Magento_Catalog::products'])
+            $this->ability(self::READ, AbilityAccess::Read, ['anonymous', 'Magento_Backend::store'])
         );
 
         self::assertSame(Exposure::Exposed, $decision->getExposure());
@@ -220,7 +220,7 @@ class ExposurePolicyTest extends TestCase
     private function ability(
         string $name,
         AbilityAccess $access,
-        array $aclResources = ['Magento_Catalog::products']
+        array $aclResources = ['Magento_Backend::store']
     ): AbilityInterface {
         $factory = Bootstrap::getObjectManager()->get(AbilityInterfaceFactory::class);
         self::assertInstanceOf(AbilityInterfaceFactory::class, $factory);
@@ -228,9 +228,9 @@ class ExposurePolicyTest extends TestCase
         return $factory->create([
             'name' => $name,
             'title' => 'Ability',
-            'category' => 'Magento_Catalog',
+            'category' => 'Magento_Store',
             'source' => 'webapi',
-            'sourceReference' => 'POST /V1/products',
+            'sourceReference' => 'GET /V1/store/storeViews',
             'access' => $access,
             'aclResources' => $aclResources,
         ]);

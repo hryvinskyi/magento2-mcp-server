@@ -18,7 +18,7 @@ class AbilityPageTest extends TestCase
 {
     public function testKeepsItsItemsAndTotal(): void
     {
-        $ability = new Ability('a.b.c', 'Title', 'Magento_Catalog', 'webapi', 'GET /V1/x', AbilityAccess::Read);
+        $ability = new Ability('a.b.c', 'Title', 'Magento_Store', 'webapi', 'GET /V1/x', AbilityAccess::Read);
         $page = new AbilityPage(40, [$ability]);
 
         self::assertSame(40, $page->getTotal());
@@ -35,7 +35,7 @@ class AbilityPageTest extends TestCase
 
     public function testRefusesMoreItemsThanMatched(): void
     {
-        $ability = new Ability('a.b.c', 'Title', 'Magento_Catalog', 'webapi', 'GET /V1/x', AbilityAccess::Read);
+        $ability = new Ability('a.b.c', 'Title', 'Magento_Store', 'webapi', 'GET /V1/x', AbilityAccess::Read);
 
         $this->expectException(\InvalidArgumentException::class);
 

@@ -47,7 +47,26 @@ class JsonRpcResponses
      */
     public function error(int|string|null $id, ErrorCode $code, string $message, ?array $data = null): array
     {
-        $error = ['code' => $code->value, 'message' => $message];
+        return $this->errorWithCode($id, $code->value, $message, $data);
+    }
+
+    /**
+     * An error response with any integer code, for an error passed on as it came rather than decided by the server
+     *
+     * @param int|string|null $id
+     * @param int $code
+     * @param string $message
+     * @param array<string,mixed>|\stdClass|null $data The error's `data` member, or null for none; an \stdClass keeps
+     *     a JSON object a JSON object when it is empty
+     * @return array<string, mixed>
+     */
+    public function errorWithCode(
+        int|string|null $id,
+        int $code,
+        string $message,
+        array|\stdClass|null $data = null
+    ): array {
+        $error = ['code' => $code, 'message' => $message];
         if ($data !== null) {
             $error['data'] = $data;
         }

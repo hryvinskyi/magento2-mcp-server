@@ -23,7 +23,7 @@ class ConfirmationTest extends TestCase
 {
     private const TOKEN = '0123456789abcdef0123456789abcdef';
     private const SESSION = 'abababababababababababababababab';
-    private const ABILITY = 'catalog.product_repository.save';
+    private const ABILITY = 'store.store_repository.save';
     private const FINGERPRINT = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     private const EXPIRES_AT = 2000;
 
@@ -69,7 +69,7 @@ class ConfirmationTest extends TestCase
                 self::ABILITY,
                 self::FINGERPRINT,
             ],
-            'another ability' => [self::SESSION, $admin, 'catalog.product_repository.delete', self::FINGERPRINT],
+            'another ability' => [self::SESSION, $admin, 'store.store_repository.delete', self::FINGERPRINT],
             'other arguments' => [self::SESSION, $admin, self::ABILITY, str_repeat('b', 64)],
         ];
     }

@@ -28,7 +28,7 @@ use PHPUnit\Framework\TestCase;
  */
 class RulesTest extends TestCase
 {
-    private const NAME = 'catalog.product_repository.save';
+    private const NAME = 'store.store_repository.save';
 
     public function testTheDenyListRuleDeniesAnAbilityWhoseOverrideDenies(): void
     {
@@ -48,7 +48,7 @@ class RulesTest extends TestCase
     {
         $rule = new DenyListRule(new InMemoryOverrideRepository([new FakeOverride(self::NAME, true)]));
 
-        self::assertNull($rule->exposureOf($this->ability('catalog.product_repository.get', AbilityAccess::Read)));
+        self::assertNull($rule->exposureOf($this->ability('store.store_repository.get', AbilityAccess::Read)));
     }
 
     public function testTheConfirmationRuleAsksForConfirmationWhereTheOverrideDoes(): void
@@ -150,9 +150,9 @@ class RulesTest extends TestCase
     {
         $rule = new AnonymousAbilityRule(new FakeConfig(true, true, false));
 
-        $catalog = 'Magento_Catalog::products';
-        self::assertNull($rule->exposureOf($this->ability(self::NAME, AbilityAccess::Read, [$catalog])));
-        self::assertNull($rule->exposureOf($this->ability(self::NAME, AbilityAccess::Read, ['anonymous', $catalog])));
+        $stores = 'Magento_Backend::stores';
+        self::assertNull($rule->exposureOf($this->ability(self::NAME, AbilityAccess::Read, [$stores])));
+        self::assertNull($rule->exposureOf($this->ability(self::NAME, AbilityAccess::Read, ['anonymous', $stores])));
         self::assertNull($rule->exposureOf($this->ability(self::NAME, AbilityAccess::Read, [])));
     }
 
@@ -164,6 +164,14 @@ class RulesTest extends TestCase
      */
     private function ability(string $name, AbilityAccess $access, array $aclResources = []): Ability
     {
-        return new Ability($name, 'Title', 'Magento_Catalog', 'webapi', 'POST /V1/products', $access, $aclResources);
+        return new Ability(
+            $name,
+            'Title',
+            'Magento_Store',
+            'webapi',
+            'POST /V1/store/storeViews',
+            $access,
+            $aclResources
+        );
     }
 }

@@ -25,9 +25,9 @@ class AbilityNamerTest extends TestCase
     {
         return [
             'a core repository' => [
-                'Magento\Catalog\Api\ProductRepositoryInterface',
+                'Magento\Store\Api\StoreRepositoryInterface',
                 'getList',
-                'catalog.product_repository.get_list',
+                'store.store_repository.get_list',
             ],
             'another vendor, its module in two words' => [
                 'Acme\ShopCore\Api\OrderRepositoryInterface',
@@ -45,14 +45,14 @@ class AbilityNamerTest extends TestCase
                 'backend.module_service.get_modules',
             ],
             'an acronym in the method' => [
-                'Magento\Cms\Api\BlockRepositoryInterface',
-                'getCMSBlock',
-                'cms.block_repository.get_cms_block',
+                'Magento\Store\Api\StoreConfigManagerInterface',
+                'getURLConfigs',
+                'store.store_config_manager.get_url_configs',
             ],
             'a leading backslash' => [
-                '\Magento\Directory\Api\CountryInformationAcquirerInterface',
-                'getCountriesInfo',
-                'directory.country_information_acquirer.get_countries_info',
+                '\Magento\Store\Api\WebsiteRepositoryInterface',
+                'getById',
+                'store.website_repository.get_by_id',
             ],
             'Api wins over a Service segment after it' => [
                 'Acme\Shop\Api\Service\PriceInterface',
@@ -84,8 +84,8 @@ class AbilityNamerTest extends TestCase
             'nothing after Api' => ['Acme\Shop\Api', 'get'],
             'only a version after Service' => ['Acme\Shop\Service\V1', 'get'],
             'only the suffix after Api' => ['Acme\Shop\Api\Interface', 'get'],
-            'no method' => ['Magento\Catalog\Api\ProductRepositoryInterface', ''],
-            'a global class' => ['ProductRepositoryInterface', 'get'],
+            'no method' => ['Magento\Store\Api\StoreRepositoryInterface', ''],
+            'a global class' => ['StoreRepositoryInterface', 'get'],
         ];
     }
 
@@ -99,7 +99,7 @@ class AbilityNamerTest extends TestCase
     {
         $namer = new AbilityNamer();
 
-        self::assertSame('Magento_Catalog', $namer->categoryOf('Magento\Catalog\Api\ProductRepositoryInterface'));
+        self::assertSame('Magento_Store', $namer->categoryOf('Magento\Store\Api\StoreRepositoryInterface'));
         self::assertSame('Acme_ShopCore', $namer->categoryOf('\Acme\ShopCore\Api\OrderRepositoryInterface'));
         self::assertNull($namer->categoryOf('Acme\Shop'));
     }
@@ -109,7 +109,7 @@ class AbilityNamerTest extends TestCase
         $namer = new AbilityNamer();
 
         self::assertSame('get_cms_block', $namer->snake('getCMSBlock'));
-        self::assertSame('product_repository', $namer->snake('ProductRepository'));
+        self::assertSame('website_repository', $namer->snake('WebsiteRepository'));
         self::assertSame('get_v2_data', $namer->snake('getV2Data'));
         self::assertSame('oauth2_token', $namer->snake('Oauth2Token'));
         self::assertSame('save', $namer->snake('save'));

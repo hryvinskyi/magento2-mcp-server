@@ -24,19 +24,19 @@ class AbilityGridQueryTest extends TestCase
         $rows = $this->rows();
 
         self::assertSame(
-            ['catalog.product_repository.save'],
+            ['store.store_repository.save'],
             $this->names($query->matching($rows, [
                 ['field' => 'source', 'condition' => 'eq', 'value' => 'webapi'],
                 ['field' => 'access', 'condition' => 'eq', 'value' => 'write'],
             ], ''))
         );
         self::assertSame(
-            ['catalog.product_repository.save', 'catalog.product_repository.get_list'],
-            $this->names($query->matching($rows, [], 'PRODUCT catalog')),
+            ['store.store_repository.save', 'store.store_repository.get_list'],
+            $this->names($query->matching($rows, [], 'STORE magento')),
             'Matching keeps the rows in the order they came'
         );
         self::assertSame(
-            ['graphql.query.products'],
+            ['graphql.query.store_config'],
             $this->names(
                 $query->matching($rows, [['field' => 'name', 'condition' => 'like', 'value' => '%Query%']], '')
             )
@@ -46,7 +46,7 @@ class AbilityGridQueryTest extends TestCase
     public function testSelectionsByListAreKeptOrLeftOut(): void
     {
         $query = new AbilityGridQuery();
-        $saved = ['catalog.product_repository.save'];
+        $saved = ['store.store_repository.save'];
 
         self::assertSame(
             $saved,
@@ -65,7 +65,7 @@ class AbilityGridQueryTest extends TestCase
         $query = new AbilityGridQuery();
 
         self::assertSame([], $query->matching($this->rows(), [
-            ['field' => 'aclResources', 'condition' => 'eq', 'value' => 'Magento_Catalog::products'],
+            ['field' => 'aclResources', 'condition' => 'eq', 'value' => 'Magento_Backend::stores'],
         ], ''));
         self::assertSame([], $query->matching($this->rows(), [
             ['field' => 'source', 'condition' => 'gteq', 'value' => 'webapi'],
@@ -77,15 +77,20 @@ class AbilityGridQueryTest extends TestCase
         $query = new AbilityGridQuery();
 
         self::assertSame(
-            ['graphql.query.products', 'catalog.product_repository.get_list', 'catalog.product_repository.save'],
+            ['graphql.query.store_config', 'store.store_repository.get_list', 'store.store_repository.save'],
             $this->names($query->sorted($this->rows(), 'source', false))
         );
         self::assertSame(
-            ['graphql.query.products', 'catalog.product_repository.save', 'catalog.product_repository.get_list'],
+            ['store.store_repository.get_list', 'store.store_repository.save', 'graphql.query.store_config'],
+            $this->names($query->sorted($this->rows(), 'source', true)),
+            'Descending by a field, rows that tie on it still follow the name upwards'
+        );
+        self::assertSame(
+            ['store.store_repository.save', 'store.store_repository.get_list', 'graphql.query.store_config'],
             $this->names($query->sorted($this->rows(), 'name', true))
         );
         self::assertSame(
-            ['catalog.product_repository.get_list', 'catalog.product_repository.save', 'graphql.query.products'],
+            ['graphql.query.store_config', 'store.store_repository.get_list', 'store.store_repository.save'],
             $this->names($query->sorted($this->rows(), 'aclResources', false)),
             'A field rows cannot be ordered by orders them by name'
         );
@@ -106,9 +111,9 @@ class AbilityGridQueryTest extends TestCase
     private function rows(): array
     {
         return [
-            $this->row('graphql.query.products', 'Products', 'graphql', 'GraphQL', 'read'),
-            $this->row('catalog.product_repository.save', 'Save a product', 'webapi', 'Magento_Catalog', 'write'),
-            $this->row('catalog.product_repository.get_list', 'Find products', 'webapi', 'Magento_Catalog', 'read'),
+            $this->row('graphql.query.store_config', 'Store config', 'graphql', 'GraphQL', 'read'),
+            $this->row('store.store_repository.save', 'Save a store view', 'webapi', 'Magento_Store', 'write'),
+            $this->row('store.store_repository.get_list', 'Find store views', 'webapi', 'Magento_Store', 'read'),
         ];
     }
 
@@ -128,13 +133,13 @@ class AbilityGridQueryTest extends TestCase
             'source' => $source,
             'category' => $category,
             'access' => $access,
-            'aclResources' => ['Magento_Catalog::products'],
+            'aclResources' => ['Magento_Backend::stores'],
             'exposure' => 'exposed',
             'reason' => '',
             'deniedHere' => false,
             'confirmHere' => false,
-            'sections' => ['Magento_Catalog::catalog'],
-            'section' => 'Magento_Catalog::catalog',
+            'sections' => ['Magento_Backend::stores'],
+            'section' => 'Magento_Backend::stores',
             'personalData' => 'hidden',
         ];
     }

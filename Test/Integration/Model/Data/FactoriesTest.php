@@ -46,9 +46,9 @@ class FactoriesTest extends TestCase
         $ability = $this->ability();
 
         self::assertInstanceOf(Ability::class, $ability);
-        self::assertSame('catalog.product_repository.get_list', $ability->getName());
+        self::assertSame('store.store_repository.get_list', $ability->getName());
         self::assertSame(AbilityAccess::Read, $ability->getAccess());
-        self::assertSame(['Magento_Catalog::products'], $ability->getAclResources());
+        self::assertSame(['Magento_Backend::store'], $ability->getAclResources());
     }
 
     public function testTheFactoryRefusesABrokenName(): void
@@ -56,11 +56,11 @@ class FactoriesTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         $this->service(AbilityInterfaceFactory::class)->create([
-            'name' => 'Catalog.ProductRepository.getList',
-            'title' => 'Get product list',
-            'category' => 'Magento_Catalog',
+            'name' => 'Store.StoreRepository.getList',
+            'title' => 'Get store view list',
+            'category' => 'Magento_Store',
             'source' => 'webapi',
-            'sourceReference' => 'GET /V1/products',
+            'sourceReference' => 'GET /V1/store/storeViews',
             'access' => AbilityAccess::Read,
         ]);
     }
@@ -80,7 +80,7 @@ class FactoriesTest extends TestCase
         $caller = $this->caller();
         $client = $this->client();
         $invocation = $this->service(InvocationInterfaceFactory::class)->create([
-            'abilityName' => 'catalog.product_repository.get',
+            'abilityName' => 'store.website_repository.get_list',
             'caller' => $caller,
             'client' => $client,
             'transport' => 'http',
@@ -107,12 +107,12 @@ class FactoriesTest extends TestCase
     public function testClientArgumentsArriveAsSent(): void
     {
         $arguments = [
-            'product' => ['sku' => 'x', 'extension_attributes' => ['instance' => \stdClass::class]],
+            'record' => ['code' => 'x', 'extension_attributes' => ['instance' => \stdClass::class]],
             'filter' => ['argument' => 'db'],
         ];
 
         $invocation = $this->service(InvocationInterfaceFactory::class)->create([
-            'abilityName' => 'catalog.product_repository.save',
+            'abilityName' => 'hryvinskyi_mcp_test.fixture.save',
             'caller' => $this->caller(),
             'client' => $this->client(),
             'transport' => 'http',
@@ -167,13 +167,13 @@ class FactoriesTest extends TestCase
     private function ability(): AbilityInterface
     {
         return $this->service(AbilityInterfaceFactory::class)->create([
-            'name' => 'catalog.product_repository.get_list',
-            'title' => 'Get product list',
-            'category' => 'Magento_Catalog',
+            'name' => 'store.store_repository.get_list',
+            'title' => 'Get store view list',
+            'category' => 'Magento_Store',
             'source' => 'webapi',
-            'sourceReference' => 'GET /V1/products',
+            'sourceReference' => 'GET /V1/store/storeViews',
             'access' => AbilityAccess::Read,
-            'aclResources' => ['Magento_Catalog::products'],
+            'aclResources' => ['Magento_Backend::store'],
         ]);
     }
 

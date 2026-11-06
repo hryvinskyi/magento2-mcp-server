@@ -23,7 +23,7 @@ class InvocationTest extends TestCase
         $caller = new Caller(UserContextInterface::USER_TYPE_ADMIN, 3);
         $client = new Client('desk-assistant', '0.1.0');
         $invocation = new Invocation(
-            'catalog.product_repository.get',
+            'store.store_repository.get',
             $caller,
             $client,
             'http',
@@ -31,7 +31,7 @@ class InvocationTest extends TestCase
             true
         );
 
-        self::assertSame('catalog.product_repository.get', $invocation->getAbilityName());
+        self::assertSame('store.store_repository.get', $invocation->getAbilityName());
         self::assertSame($caller, $invocation->getCaller());
         self::assertSame($client, $invocation->getClient());
         self::assertSame('http', $invocation->getTransport());

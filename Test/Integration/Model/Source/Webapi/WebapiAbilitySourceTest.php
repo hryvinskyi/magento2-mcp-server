@@ -10,12 +10,15 @@ declare(strict_types=1);
 namespace Hryvinskyi\McpServer\Test\Integration\Model\Source\Webapi;
 
 use Hryvinskyi\McpServer\Api\AbilityCatalogInterface;
+use Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface;
 use Hryvinskyi\McpServer\Api\Data\AbilityAccess;
 use Hryvinskyi\McpServer\Api\Data\AbilityInterface;
+use Hryvinskyi\McpServer\Api\Data\AbilityOverrideInterface;
 use Hryvinskyi\McpServer\Api\Data\Exposure;
 use Hryvinskyi\McpServer\Api\ExposurePolicyInterface;
 use Hryvinskyi\McpServer\Api\McpEndpointInterface;
 use Hryvinskyi\McpServer\Model\AbilityCatalog;
+use Hryvinskyi\McpServer\Model\AbilityOverrideRepository;
 use Hryvinskyi\McpServer\Model\Cache\Type\McpCache;
 use Hryvinskyi\McpServer\Model\Source\Webapi\Route;
 use Hryvinskyi\McpServer\Model\Source\Webapi\RouteAbilityBuilder;
@@ -31,6 +34,7 @@ use Hryvinskyi\McpServer\Test\Integration\Fake\StrictTypedService;
 use Hryvinskyi\McpServer\Test\Integration\Fake\TypedServiceInterface;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\AdminRoles;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\DeclaresTestWebapiRoutes;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\McpAcl;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Hryvinskyi\McpServer\Test\Unit\Fake\CountingSchemaBuilder;
@@ -43,6 +47,7 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Webapi\Authorization as WebapiAuthorization;
 use Magento\Integration\Api\AdminTokenServiceInterface;
+use Magento\Store\Api\StoreRepositoryInterface;
 use Magento\TestFramework\Fixture\AppArea;
 use Magento\TestFramework\Fixture\DbIsolation;
 use Magento\TestFramework\Helper\Bootstrap;
@@ -53,21 +58,25 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * The Web API ability source as the container wires it in the REST area, over the store's real `webapi.xml` routes
+ *
+ * No module this one depends on routes a search-criteria list, a data-object save or an update route with the record
+ * key in its path, so the tests of those add test routes of the UI bookmark repository and of this module's override
+ * repository to the store's configuration.
  */
 #[AppArea('webapi_rest')]
 class WebapiAbilitySourceTest extends TestCase
 {
     use BlocksRealGraphQlClient;
+    use DeclaresTestWebapiRoutes;
     use SwitchesGraphQlSourceOff;
 
-    private const GET_LIST = 'catalog.product_repository.get_list';
-    private const SAVE = 'catalog.product_repository.save';
-    private const GET = 'catalog.product_repository.get';
-    private const COUNTRIES = 'directory.country_information_acquirer.get_countries_info';
+    private const STORE_VIEWS = 'store.store_repository.get_list';
+    private const WEBSITES = 'store.website_repository.get_list';
+    private const CUSTOMER_TOKEN_ISSUER = 'integration.customer_token_service.create_customer_access_token';
     private const TOKEN_ISSUER = 'integration.admin_token_service.create_admin_access_token';
-    private const ATTRIBUTE_SET_SAVE = 'catalog.attribute_set_repository.save';
-    private const ATTRIBUTE_SET_CREATE = 'catalog.attribute_set_management.create';
-    private const ATTRIBUTE_SET_LIST = 'catalog.attribute_set_repository.get_list';
+    private const BOOKMARK_LIST = 'ui.bookmark_repository.get_list';
+    private const BOOKMARK_GET = 'ui.bookmark_repository.get_by_id';
+    private const OVERRIDE_SAVE = 'hryvinskyi_mcp_server.ability_override_repository.save';
 
     /**
      * Shared instances that hold a user context, built again for each caller a test plays
@@ -92,19 +101,19 @@ class WebapiAbilitySourceTest extends TestCase
         $this->catalog()->_resetState();
     }
 
-    public function testTheCatalogListsTheProductRepositoryWithItsAccessAndCategory(): void
+    public function testTheCatalogListsAReadAndAWriteRouteWithTheirAccessAndCategory(): void
     {
         $catalog = $this->catalog();
-        $list = $catalog->get(self::GET_LIST);
-        $save = $catalog->get(self::SAVE);
+        $list = $catalog->get(self::STORE_VIEWS);
+        $issuer = $catalog->get(self::CUSTOMER_TOKEN_ISSUER);
 
         self::assertSame(WebapiAbilitySource::CODE, $list->getSource());
         self::assertSame(AbilityAccess::Read, $list->getAccess());
-        self::assertSame('Magento_Catalog', $list->getCategory());
-        self::assertSame('GET /V1/products', $list->getSourceReference());
+        self::assertSame('Magento_Store', $list->getCategory());
+        self::assertSame('GET /V1/store/storeViews', $list->getSourceReference());
         self::assertNotSame('', $list->getTitle());
-        self::assertSame(AbilityAccess::Write, $save->getAccess());
-        self::assertSame('POST /V1/products', $save->getSourceReference());
+        self::assertSame(AbilityAccess::Write, $issuer->getAccess());
+        self::assertSame('POST /V1/integration/customer/token', $issuer->getSourceReference());
     }
 
     public function testTheServiceFormWithAVersionSegmentIsListed(): void
@@ -139,8 +148,8 @@ class WebapiAbilitySourceTest extends TestCase
                 'handle',
                 ['Hryvinskyi_McpServer::access']
             )],
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(
-                'Magento\Catalog\Api\ProductRepositoryInterface',
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(
+                StoreRepositoryInterface::class,
                 'getList'
             )],
         ]);
@@ -148,7 +157,7 @@ class WebapiAbilitySourceTest extends TestCase
         self::assertInstanceOf(RouteIndex::class, $index);
 
         self::assertSame(
-            ['GET /V1/products'],
+            ['GET /V1/store/storeViews'],
             array_map(static fn (Route $route): string => $route->getReference(), $index->routes())
         );
         $this->expectException(NoSuchEntityException::class);
@@ -158,23 +167,24 @@ class WebapiAbilitySourceTest extends TestCase
     #[DbIsolation(true)]
     public function testTheAclAsksForTheRouteResourcesOfTheCaller(): void
     {
-        $list = $this->catalog()->get(self::GET_LIST);
-        self::assertSame(['Magento_Catalog::products'], $list->getAclResources());
+        $list = $this->catalog()->get(self::STORE_VIEWS);
+        self::assertSame(['Magento_Backend::store'], $list->getAclResources());
 
         $this->actAs(AdminRoles::grant(['Magento_Backend::all'], 990001));
-        self::assertTrue($this->catalog()->isAllowed($this->catalog()->get(self::GET_LIST)));
-        self::assertTrue($this->catalog()->isAllowed($this->catalog()->get(self::COUNTRIES)));
+        self::assertTrue($this->catalog()->isAllowed($this->catalog()->get(self::STORE_VIEWS)));
+        self::assertTrue($this->catalog()->isAllowed($this->catalog()->get(self::CUSTOMER_TOKEN_ISSUER)));
 
-        $this->actAs(AdminRoles::grant(['Magento_Backend::stores'], 990002));
-        self::assertFalse($this->catalog()->isAllowed($this->catalog()->get(self::GET_LIST)));
-        self::assertTrue($this->catalog()->isAllowed($this->catalog()->get(self::COUNTRIES)));
-        self::assertSame(['anonymous'], $this->catalog()->get(self::COUNTRIES)->getAclResources());
+        $this->actAs(AdminRoles::grant(['Hryvinskyi_McpServer::access'], 990002));
+        self::assertFalse($this->catalog()->isAllowed($this->catalog()->get(self::STORE_VIEWS)));
+        self::assertTrue($this->catalog()->isAllowed($this->catalog()->get(self::CUSTOMER_TOKEN_ISSUER)));
+        self::assertSame(['anonymous'], $this->catalog()->get(self::CUSTOMER_TOKEN_ISSUER)->getAclResources());
     }
 
     public function testTheSchemaOfGetListRequiresSearchCriteria(): void
     {
+        $this->declareTestWebapiRoutes();
         $catalog = $this->catalog();
-        $schema = $catalog->schemaOf($catalog->get(self::GET_LIST));
+        $schema = $catalog->schemaOf($catalog->get(self::BOOKMARK_LIST));
 
         self::assertSame('object', $schema['type']);
         self::assertSame(['searchCriteria'], $schema['required'] ?? null);
@@ -189,96 +199,88 @@ class WebapiAbilitySourceTest extends TestCase
         self::assertSame([], $this->requiredListsIn($criteria), 'Nothing inside the search criteria is required.');
     }
 
-    public function testTheSchemaOfSaveRequiresTheProductAndNothingInsideIt(): void
+    public function testTheSchemaOfSaveRequiresTheRecordAndNothingInsideIt(): void
     {
+        $this->declareTestWebapiRoutes();
         $catalog = $this->catalog();
-        $schema = $catalog->schemaOf($catalog->get(self::SAVE));
+        $schema = $catalog->schemaOf($catalog->get(self::OVERRIDE_SAVE));
 
-        self::assertSame(['product'], $schema['required'] ?? null);
+        self::assertSame(['override'], $schema['required'] ?? null);
         $properties = $schema['properties'] ?? null;
         self::assertIsArray($properties);
-        $product = $properties['product'] ?? null;
-        self::assertIsArray($product);
-        $productFields = $product['properties'] ?? null;
-        self::assertIsArray($productFields);
-        self::assertArrayHasKey('sku', $productFields);
-        self::assertSame([], $this->requiredListsIn($product), 'Nothing inside the product is required.');
+        $override = $properties['override'] ?? null;
+        self::assertIsArray($override);
+        $overrideFields = $override['properties'] ?? null;
+        self::assertIsArray($overrideFields);
+        self::assertArrayHasKey('ability', $overrideFields);
+        self::assertSame([], $this->requiredListsIn($override), 'Nothing inside the override is required.');
     }
 
     public function testAnUpdateRouteTakesTheRecordIdOfItsPathAsAnOptionalArgument(): void
     {
+        $this->declareTestWebapiRoutes();
         $catalog = $this->catalog();
-        $ability = $catalog->get(self::ATTRIBUTE_SET_SAVE);
+        $ability = $catalog->get(self::OVERRIDE_SAVE);
         $schema = $catalog->schemaOf($ability);
 
-        self::assertSame('PUT /V1/products/attribute-sets/:attributeSetId', $ability->getSourceReference());
-        self::assertSame(['attributeSet'], $schema['required'] ?? null);
+        self::assertSame('PUT /V1/hryvinskyi-mcp-test/overrides/:ability', $ability->getSourceReference());
+        self::assertSame(['override'], $schema['required'] ?? null);
         $properties = $schema['properties'] ?? null;
         self::assertIsArray($properties);
-        self::assertSame(['attributeSet', 'attributeSetId'], array_keys($properties));
+        self::assertSame(['override', 'ability'], array_keys($properties));
     }
 
     /**
-     * The attribute sets are created and read through abilities too, so the test needs no class of the catalog
+     * The record is the override of the ability the path names, stored before as a confirmation: the body names
+     * another ability, which gets no record
      */
     #[DbIsolation(true)]
     public function testTheRecordIdOfTheUpdateRouteUpdatesThatRecordInsteadOfCreatingOne(): void
     {
-        $default = $this->attributeSetsNamed('Default')[0] ?? null;
-        self::assertIsArray($default);
-        $created = $this->call(self::ATTRIBUTE_SET_CREATE, [
-            'attributeSet' => [
-                'attribute_set_name' => 'MCP path id, before',
-                'entity_type_id' => $default['entity_type_id'],
-            ],
-            'skeletonId' => $default['attribute_set_id'],
-        ]);
-        $id = $created['attribute_set_id'] ?? null;
-        self::assertIsNumeric($id);
+        $this->declareTestWebapiRoutes();
+        $confirmed = self::objectManager()->create(AbilityOverrideInterface::class);
+        self::assertInstanceOf(AbilityOverrideInterface::class, $confirmed);
+        $this->overrides()->save(
+            $confirmed->setAbility(self::STORE_VIEWS)->setDenied(false)->setNeedsConfirmation(true)
+        );
+        self::assertFalse($this->overrides()->get(self::STORE_VIEWS)?->isDenied());
 
-        $saved = $this->call(self::ATTRIBUTE_SET_SAVE, [
-            'attributeSetId' => $id,
-            'attributeSet' => [
-                'attribute_set_name' => 'MCP path id, after',
-                'entity_type_id' => $default['entity_type_id'],
-            ],
-        ]);
+        $this->saveOverrideThroughTheAbility(self::STORE_VIEWS, ['ability' => self::WEBSITES, 'denied' => true]);
 
-        self::assertEquals($id, $saved['attribute_set_id'] ?? null);
-        self::assertSame([], $this->attributeSetsNamed('MCP path id, before'));
-        $renamed = $this->attributeSetsNamed('MCP path id, after');
-        self::assertCount(1, $renamed, 'The set was renamed, and no second set was created.');
-        self::assertEquals($id, $renamed[0]['attribute_set_id'] ?? null);
+        self::assertTrue($this->overrides()->get(self::STORE_VIEWS)?->isDenied(), 'The record the path names changed.');
+        self::assertNull($this->overrides()->get(self::WEBSITES), 'No record was created for the body\'s ability.');
     }
 
     public function testTheSchemaOfAMethodWithoutParametersEncodesItsPropertiesAsAnObject(): void
     {
         $catalog = $this->catalog();
-        $schema = $catalog->schemaOf($catalog->get(self::COUNTRIES));
+        $schema = $catalog->schemaOf($catalog->get(self::STORE_VIEWS));
 
         self::assertSame('{"type":"object","properties":{}}', json_encode($schema, JSON_THROW_ON_ERROR));
     }
 
-    public function testInvokingTheCountriesAbilityReturnsTheCountries(): void
+    public function testInvokingTheStoreViewListReturnsTheStoreViews(): void
     {
-        $result = $this->sourceOf($this->catalog())->invoke($this->catalog()->get(self::COUNTRIES), []);
+        $result = $this->sourceOf($this->catalog())->invoke($this->catalog()->get(self::STORE_VIEWS), []);
 
         self::assertIsArray($result);
-        $ids = array_map(
-            static fn (mixed $country): mixed => is_array($country) ? ($country['id'] ?? null) : null,
+        $codes = array_map(
+            static fn (mixed $storeView): mixed => is_array($storeView) ? ($storeView['code'] ?? null) : null,
             $result
         );
-        self::assertContains('US', $ids);
+        self::assertContains('default', $codes);
     }
 
-    public function testInvokingGetWithAnUnknownSkuFailsWithTheRepositorysNotFoundException(): void
+    public function testInvokingGetWithAnUnknownIdFailsWithTheRepositorysNotFoundException(): void
     {
+        $this->declareTestWebapiRoutes();
+
         $this->expectException(NoSuchEntityException::class);
-        $this->expectExceptionMessage('hryvinskyi-mcp-no-such-sku');
+        $this->expectExceptionMessage('"987654321"');
 
         $this->sourceOf($this->catalog())->invoke(
-            $this->catalog()->get(self::GET),
-            ['sku' => 'hryvinskyi-mcp-no-such-sku']
+            $this->catalog()->get(self::BOOKMARK_GET),
+            ['bookmarkId' => 987654321]
         );
     }
 
@@ -302,7 +304,7 @@ class WebapiAbilitySourceTest extends TestCase
         $this->expectException(LocalizedException::class);
         $this->expectExceptionMessage('The arguments do not match the parameters of the ability');
 
-        $invoker->invoke($this->catalog()->get(self::COUNTRIES), $route, ['value' => 'not a number']);
+        $invoker->invoke($this->catalog()->get(self::STORE_VIEWS), $route, ['value' => 'not a number']);
     }
 
     public function testTheBuiltInDenyListDeniesTheAdminTokenIssuerOfTheIntegrationModule(): void
@@ -376,7 +378,7 @@ class WebapiAbilitySourceTest extends TestCase
             $counting = new CountingSchemaBuilder($metadataBuilder);
             $cached = self::objectManager()->create(CachedInputSchemaBuilder::class, ['inner' => $counting]);
             self::assertInstanceOf(CachedInputSchemaBuilder::class, $cached);
-            $ability = $this->catalog()->get(self::GET_LIST);
+            $ability = $this->catalog()->get(self::STORE_VIEWS);
             $route = $this->routeOf($ability);
 
             $first = $cached->build($ability, $route)->getSchema();
@@ -412,41 +414,32 @@ class WebapiAbilitySourceTest extends TestCase
     }
 
     /**
-     * Run an ability of the Web API source and return its output, which is an object
+     * Save an override through the update route's ability, the record named by the path
      *
-     * @param string $name
-     * @param array<string, mixed> $arguments
-     * @return array<mixed>
+     * @param string $pathAbility
+     * @param array<string, mixed> $override
+     * @return void
      */
-    private function call(string $name, array $arguments): array
+    private function saveOverrideThroughTheAbility(string $pathAbility, array $override): void
     {
-        $output = $this->sourceOf($this->catalog())->invoke($this->catalog()->get($name), $arguments);
-        self::assertIsArray($output);
-
-        return $output;
+        $this->sourceOf($this->catalog())->invoke(
+            $this->catalog()->get(self::OVERRIDE_SAVE),
+            ['ability' => $pathAbility, 'override' => $override]
+        );
     }
 
     /**
-     * The product attribute sets with this name, as the attribute set list ability returns them
+     * The override repository, reading the table afresh
      *
-     * @param string $name
-     * @return list<array<mixed>>
+     * @return AbilityOverrideRepositoryInterface
      */
-    private function attributeSetsNamed(string $name): array
+    private function overrides(): AbilityOverrideRepositoryInterface
     {
-        $found = $this->call(self::ATTRIBUTE_SET_LIST, ['searchCriteria' => ['filter_groups' => [['filters' => [
-            ['field' => 'attribute_set_name', 'value' => $name, 'condition_type' => 'eq'],
-        ]]]]]);
-        $items = $found['items'] ?? null;
-        self::assertIsArray($items);
+        $repository = self::objectManager()->get(AbilityOverrideRepositoryInterface::class);
+        self::assertInstanceOf(AbilityOverrideRepository::class, $repository);
+        $repository->_resetState();
 
-        $sets = [];
-        foreach ($items as $item) {
-            self::assertIsArray($item);
-            $sets[] = $item;
-        }
-
-        return $sets;
+        return $repository;
     }
 
     /**
@@ -522,7 +515,7 @@ class WebapiAbilitySourceTest extends TestCase
      */
     private function sourceOf(AbilityCatalog $catalog): WebapiAbilitySource
     {
-        $source = $catalog->sourceOf($catalog->get(self::COUNTRIES));
+        $source = $catalog->sourceOf($catalog->get(self::STORE_VIEWS));
         self::assertInstanceOf(WebapiAbilitySource::class, $source);
 
         return $source;

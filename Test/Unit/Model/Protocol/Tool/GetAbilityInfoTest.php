@@ -18,7 +18,7 @@ use Hryvinskyi\McpServer\Test\Unit\Fake\ProtocolKit;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `get_ability_info` over a fake catalog: everything about one ability, whatever the caller's ACL
+ * `get_ability_info` over a fake ability catalog: everything about one ability, whatever the caller's ACL
  */
 class GetAbilityInfoTest extends TestCase
 {
@@ -35,21 +35,21 @@ class GetAbilityInfoTest extends TestCase
     public function testAnAbilityIsDescribedWithItsSchemaExposureAndWhetherTheCallerMayCallIt(): void
     {
         $result = $this->tool(Exposure::ReadOnlyBlocked, false)->call(
-            ['name' => 'catalog.product_repository.save'],
+            ['name' => 'store.store_repository.save'],
             $this->kit->callContext()
         );
 
         self::assertFalse($result['isError']);
         self::assertEquals(
             [
-                'name' => 'catalog.product_repository.save',
-                'title' => 'Save a product',
+                'name' => 'store.store_repository.save',
+                'title' => 'Save a store view',
                 'description' => '',
-                'category' => 'Magento_Catalog',
+                'category' => 'Magento_Store',
                 'source' => 'webapi',
                 'access' => 'write',
-                'aclResources' => ['Magento_Catalog::products', 'Magento_Catalog::edit'],
-                'sections' => ['Catalog'],
+                'aclResources' => ['Magento_Backend::stores_settings', 'Magento_Config::config'],
+                'sections' => ['Stores › Settings'],
                 'exposure' => 'read_only_blocked',
                 'personalData' => 'hidden',
                 'allowedForYou' => false,
@@ -63,7 +63,7 @@ class GetAbilityInfoTest extends TestCase
     public function testADeniedAbilitySaysWhichRuleDeniesIt(): void
     {
         $result = $this->tool(Exposure::Denied, true, 'anonymous_ability')->call(
-            ['name' => 'catalog.product_repository.save'],
+            ['name' => 'store.store_repository.save'],
             $this->kit->callContext()
         );
 
@@ -77,7 +77,7 @@ class GetAbilityInfoTest extends TestCase
     public function testAnAbilityAClientMayCallHasNoDenialReason(): void
     {
         $result = $this->tool(Exposure::NeedsConfirmation)->call(
-            ['name' => 'catalog.product_repository.save'],
+            ['name' => 'store.store_repository.save'],
             $this->kit->callContext()
         );
 
@@ -87,9 +87,9 @@ class GetAbilityInfoTest extends TestCase
 
     public function testAnAbilityShownPersonalDataSaysSo(): void
     {
-        $this->kit->personalDataPolicy = new FakePersonalDataPolicy(true, ['catalog.product_repository.save']);
+        $this->kit->personalDataPolicy = new FakePersonalDataPolicy(true, ['store.store_repository.save']);
 
-        $result = $this->tool()->call(['name' => 'catalog.product_repository.save'], $this->kit->callContext());
+        $result = $this->tool()->call(['name' => 'store.store_repository.save'], $this->kit->callContext());
 
         self::assertIsArray($result['structuredContent']);
         self::assertSame('shown', $result['structuredContent']['personalData'] ?? null);
@@ -97,12 +97,12 @@ class GetAbilityInfoTest extends TestCase
 
     public function testAnUnknownNameIsAToolErrorPointingAtDiscovery(): void
     {
-        $result = $this->tool()->call(['name' => 'catalog.nothing.here'], $this->kit->callContext());
+        $result = $this->tool()->call(['name' => 'store.nothing.here'], $this->kit->callContext());
 
         self::assertTrue($result['isError']);
         self::assertArrayNotHasKey('structuredContent', $result);
         self::assertSame(
-            [['type' => 'text', 'text' => 'No ability is named "catalog.nothing.here". '
+            [['type' => 'text', 'text' => 'No ability is named "store.nothing.here". '
                 . 'Find ability names with discover_abilities.']],
             $result['content']
         );

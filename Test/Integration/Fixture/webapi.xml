@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
+<!-- Test routes only: DeclaresTestWebapiRoutes adds them to the store's Web API configuration for one test -->
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
+    <route url="/V1/hryvinskyi-mcp-test/bookmarks" method="GET">
+        <service class="Magento\Ui\Api\BookmarkRepositoryInterface" method="getList"/>
+        <resources>
+            <resource ref="Hryvinskyi_McpServer::access"/>
+        </resources>
+    </route>
+    <route url="/V1/hryvinskyi-mcp-test/bookmarks/:bookmarkId" method="GET">
+        <service class="Magento\Ui\Api\BookmarkRepositoryInterface" method="getById"/>
+        <resources>
+            <resource ref="Hryvinskyi_McpServer::access"/>
+        </resources>
+    </route>
+    <route url="/V1/hryvinskyi-mcp-test/overrides/:ability" method="PUT">
+        <service class="Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface" method="save"/>
+        <resources>
+            <resource ref="Hryvinskyi_McpServer::access"/>
+        </resources>
+    </route>
+</routes>

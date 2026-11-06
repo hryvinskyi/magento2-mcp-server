@@ -11,6 +11,7 @@ namespace Hryvinskyi\McpServer\Test\Integration\Controller\Adminhtml\Server;
 
 use Hryvinskyi\McpServer\Api\PersonalDataExceptionsInterface;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\ForgetsStoredNames;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\RegistersTestAbilities;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Laminas\Http\Headers;
 use Magento\Framework\Acl\Builder as AclBuilder;
@@ -28,6 +29,7 @@ use Magento\TestFramework\TestCase\AbstractBackendController;
 class GridDataTest extends AbstractBackendController
 {
     use ForgetsStoredNames;
+    use RegistersTestAbilities;
     use SwitchesGraphQlSourceOff;
 
     /**
@@ -53,11 +55,26 @@ class GridDataTest extends AbstractBackendController
         parent::tearDown();
     }
 
+    /**
+     * Three test abilities that write and one that reads match the search; the access filter keeps the three
+     */
     #[Config('hryvinskyi_mcp_server/general/read_only_mode', '1')]
     public function testTheCatalogIsSearchedFilteredAndPagedWithEachExposureExplained(): void
     {
+        $writes = [
+            'title' => 'Change a test record',
+            'access' => 'write',
+            'aclResources' => ['Magento_Backend::stores'],
+        ];
+        $this->registerTestAbilities([
+            'hryvinskyi_mcp_test.fixture.create' => $writes,
+            'hryvinskyi_mcp_test.fixture.save' => $writes,
+            'hryvinskyi_mcp_test.fixture.update' => $writes,
+            'hryvinskyi_mcp_test.fixture.get' => ['access' => 'read'] + $writes,
+        ]);
+
         $data = $this->render([
-            'search' => 'catalog',
+            'search' => 'fixture',
             'filters' => ['access' => 'write', 'placeholder' => 'true'],
             'paging' => ['pageSize' => '2', 'current' => '1'],
             'sorting' => ['field' => 'name', 'direction' => 'asc'],
@@ -67,6 +84,7 @@ class GridDataTest extends AbstractBackendController
         self::assertCount(2, $data['items']);
         $first = $data['items'][0];
         self::assertIsArray($first);
+        self::assertSame('hryvinskyi_mcp_test.fixture.create', $first['name'] ?? null);
         self::assertSame('write', $first['access'] ?? null);
         self::assertIsString($first['exposure'] ?? null);
         self::assertStringContainsString('Blocked: read-only mode', $first['exposure']);

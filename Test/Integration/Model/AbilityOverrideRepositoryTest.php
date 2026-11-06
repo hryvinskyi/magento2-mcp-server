@@ -30,8 +30,8 @@ class AbilityOverrideRepositoryTest extends TestCase
 {
     use BlocksRealGraphQlClient;
 
-    private const NAME = 'catalog.product_repository.save';
-    private const OTHER_NAME = 'catalog.product_repository.delete_by_id';
+    private const NAME = 'store.website_repository.get_list';
+    private const OTHER_NAME = 'store.store_repository.get_list';
 
     /**
      * @var AbilityOverrideRepository
@@ -126,7 +126,7 @@ class AbilityOverrideRepositoryTest extends TestCase
     {
         $this->expectException(CouldNotSaveException::class);
 
-        $this->repository->save($this->override('Catalog.ProductRepository.save', true, false));
+        $this->repository->save($this->override('Store.StoreRepository.getList', true, false));
     }
 
     public function testTheTableIsReadOncePerRequest(): void

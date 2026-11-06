@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `discover_abilities` over a fake catalog: search, filters, paging, exposure, and the arguments it refuses
+ * `discover_abilities` over a fake ability catalog: search, filters, paging, exposure, and the arguments it refuses
  */
 class DiscoverAbilitiesTest extends TestCase
 {
@@ -42,24 +42,24 @@ class DiscoverAbilitiesTest extends TestCase
                 'total' => 3,
                 'abilities' => [
                     [
-                        'name' => 'catalog.product_repository.get_list',
-                        'title' => 'Product list',
-                        'category' => 'Magento_Catalog',
-                        'access' => 'read',
-                        'exposure' => 'needs_confirmation',
-                    ],
-                    [
-                        'name' => 'catalog.product_repository.save',
-                        'title' => 'Save a product',
-                        'category' => 'Magento_Catalog',
-                        'access' => 'write',
-                        'exposure' => 'needs_confirmation',
-                    ],
-                    [
                         'name' => 'directory.country_information_acquirer.get_countries_info',
                         'title' => 'Countries',
                         'category' => 'Magento_Directory',
                         'access' => 'read',
+                        'exposure' => 'needs_confirmation',
+                    ],
+                    [
+                        'name' => 'store.store_repository.get_list',
+                        'title' => 'Store view list',
+                        'category' => 'Magento_Store',
+                        'access' => 'read',
+                        'exposure' => 'needs_confirmation',
+                    ],
+                    [
+                        'name' => 'store.store_repository.save',
+                        'title' => 'Save a store view',
+                        'category' => 'Magento_Store',
+                        'access' => 'write',
                         'exposure' => 'needs_confirmation',
                     ],
                 ],
@@ -73,15 +73,15 @@ class DiscoverAbilitiesTest extends TestCase
         $tool = $this->tool();
 
         $byQuery = $tool->call(['query' => 'COUNTRY'], $this->kit->callContext());
-        $byFilters = $tool->call(['category' => 'Magento_Catalog', 'access' => 'write'], $this->kit->callContext());
+        $byFilters = $tool->call(['category' => 'Magento_Store', 'access' => 'write'], $this->kit->callContext());
         $paged = $tool->call(['limit' => 1, 'offset' => 1], $this->kit->callContext());
 
         self::assertSame(
             ['directory.country_information_acquirer.get_countries_info'],
             $this->names($byQuery['structuredContent'])
         );
-        self::assertSame(['catalog.product_repository.save'], $this->names($byFilters['structuredContent']));
-        self::assertSame(['catalog.product_repository.save'], $this->names($paged['structuredContent']));
+        self::assertSame(['store.store_repository.save'], $this->names($byFilters['structuredContent']));
+        self::assertSame(['store.store_repository.get_list'], $this->names($paged['structuredContent']));
         self::assertIsArray($paged['structuredContent']);
         self::assertSame(3, $paged['structuredContent']['total']);
     }

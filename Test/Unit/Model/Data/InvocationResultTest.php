@@ -21,7 +21,7 @@ class InvocationResultTest extends TestCase
 {
     public function testASucceededResultCarriesItsValueOnACopy(): void
     {
-        $ability = new Ability('a.b.c', 'Title', 'Magento_Catalog', 'webapi', 'GET /V1/x', AbilityAccess::Read);
+        $ability = new Ability('a.b.c', 'Title', 'Magento_Store', 'webapi', 'GET /V1/x', AbilityAccess::Read);
         $result = new InvocationResult(InvocationOutcome::Succeeded, 12.5, $ability);
         $value = ['items' => [['instance' => 'x', 'argument' => 'db']]];
 
@@ -61,9 +61,9 @@ class InvocationResultTest extends TestCase
 
     public function testAFailedResultSaysWhatWentWrong(): void
     {
-        $result = new InvocationResult(InvocationOutcome::Failed, 3.0, null, 'The product does not exist.');
+        $result = new InvocationResult(InvocationOutcome::Failed, 3.0, null, 'The store view does not exist.');
 
-        self::assertSame('The product does not exist.', $result->getMessage());
+        self::assertSame('The store view does not exist.', $result->getMessage());
     }
 
     public function testAResultWaitingForConfirmationNeedsNoMessage(): void

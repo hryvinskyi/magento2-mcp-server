@@ -14,6 +14,7 @@ use Hryvinskyi\McpServer\Api\Data\CallerInterfaceFactory;
 use Hryvinskyi\McpServer\Model\Data\Caller;
 use Hryvinskyi\McpServer\Model\Http\McpRequestProcessor;
 use Hryvinskyi\McpServer\Model\Http\OriginPolicy;
+use Hryvinskyi\McpServer\Model\Http\UrlHost;
 use Hryvinskyi\McpServer\Model\Http\Verb\EndSession;
 use Hryvinskyi\McpServer\Model\Http\Verb\PostMessages;
 use Hryvinskyi\McpServer\Model\Http\Verb\VerbInterface;
@@ -78,7 +79,7 @@ class McpRequestProcessorTest extends TestCase
             'the endpoint with a trailing slash' => ['/V1/mcp/', true],
             'a route under the endpoint' => ['/V1/mcp/servers', false],
             'a route that starts like the endpoint' => ['/V1/mcpx', false],
-            'another route' => ['/V1/products', false],
+            'another route' => ['/V1/store/storeViews', false],
         ];
     }
 
@@ -368,7 +369,7 @@ class McpRequestProcessorTest extends TestCase
         $scopeConfig->method('getValue')->willReturn(self::SERVED_ORIGIN . '/');
         $storeManager = $this->storeManager('admin');
 
-        return new OriginPolicy($storeManager, $scopeConfig);
+        return new OriginPolicy($storeManager, $scopeConfig, new UrlHost());
     }
 
     /**

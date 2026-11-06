@@ -6,9 +6,18 @@
  * GitHub: https://github.com/hryvinskyi
  */
 -->
+<!--
+    The kit's handle is declared here, beside the page's own stylesheet: Magento merges a file's updates before its
+    content, so the kit's stylesheet is linked first and the page's rules override kit rules of the same weight.
+    The overview stays a direct child of the content container, so a block another module orders before or after it
+    keeps its place. Only the ability catalog is wrapped, in the kit's tokens-only root: the cells its columns print
+    read the kit's colours, while the listing's own controls keep the admin theme's look and the kit's base rules
+    stay off markup this module does not print. The overview's template prints the full kit root itself.
+-->
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
     <update handle="hryvinskyi_mcp_server_menu"/>
+    <update handle="hryvinskyi_admin_ui"/>
     <head>
         <css src="Hryvinskyi_McpServer::css/mcp-server.css"/>
     </head>
@@ -18,6 +27,7 @@
                    template="Hryvinskyi_McpServer::server/overview.phtml">
                 <arguments>
                     <argument name="overview" xsi:type="object">Hryvinskyi\McpServer\ViewModel\ServerOverview</argument>
+                    <argument name="integration_access" xsi:type="object">Hryvinskyi\McpServer\ViewModel\IntegrationAccess</argument>
                 </arguments>
                 <block class="Magento\Backend\Block\Template" name="hryvinskyi.mcp.server.sections" as="sections"
                        template="Hryvinskyi_McpServer::server/sections.phtml">
@@ -26,7 +36,9 @@
                     </arguments>
                 </block>
             </block>
-            <uiComponent name="hryvinskyi_mcp_ability_listing"/>
+            <container name="hryvinskyi.mcp.server.catalog" htmlTag="div" htmlClass="hui-tokens">
+                <uiComponent name="hryvinskyi_mcp_ability_listing"/>
+            </container>
         </referenceContainer>
     </body>
 </page>

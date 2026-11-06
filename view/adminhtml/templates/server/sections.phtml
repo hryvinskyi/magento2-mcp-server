@@ -14,6 +14,11 @@ use Magento\Framework\Escaper;
 /**
  * The sections card of the MCP Server page: each area of the store with its abilities, and a switch
  *
+ * A card of the admin UI kit with a list of rows. Each switch is a form of its own that posts the section's code with
+ * the form key; it draws the section's current state and says what pressing it does. With the sections card's script
+ * the form is sent in the background and the rows are redrawn from the answer (`sections-card.js` names the
+ * `data-role` hooks it reads); without it, the form posts and the page reloads.
+ *
  * @var Template $block
  * @var Escaper $escaper
  */
@@ -22,62 +27,89 @@ if (!$overview instanceof SectionsOverview) {
     return;
 }
 $canSwitch = $overview->canSwitch();
+$mountConfig = $overview->mountConfig('[data-role="mcp-sections"]');
+$tile = '<svg class="hui-icon hui-icon--18" viewBox="0 0 16 16" aria-hidden="true" focusable="false">'
+    . '<path d="M8 2 14 5 8 8 2 5 8 2zM2 8l6 3 6-3M2 11l6 3 6-3" fill="none" stroke="currentColor"'
+    . ' stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 ?>
-<section class="mcp-card mcp-sections" aria-labelledby="mcp-sections-title">
-    <header class="mcp-card__header">
-        <h2 class="mcp-card__title" id="mcp-sections-title"><?= $escaper->escapeHtml(__('Sections')) ?></h2>
-        <span class="mcp-catalog__lead">
-            <?= $escaper->escapeHtml(__(
-                'Areas of the store, as the admin panel groups them. While a section is off, no client may call its '
-                . 'abilities.'
-            )) ?>
-        </span>
+<section class="hui-card" aria-labelledby="mcp-sections-title" data-role="mcp-sections">
+    <header class="hui-card__head">
+        <span class="hui-card__tile"><?= /* @noEscape */ $tile ?></span>
+        <div class="hui-card__heading">
+            <h2 class="hui-card__title" id="mcp-sections-title"><?= $escaper->escapeHtml(__('Sections')) ?></h2>
+            <p class="hui-card__subtitle">
+                <?= $escaper->escapeHtml(__(
+                    'Areas of the store, as the admin panel groups them. While a section is off, no client may call '
+                    . 'its abilities.'
+                )) ?>
+            </p>
+        </div>
     </header>
-    <table class="data-grid mcp-sections__table">
-        <thead>
-            <tr>
-                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Section')) ?></th>
-                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Modules')) ?></th>
-                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Abilities')) ?></th>
-                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Exposed')) ?></th>
-                <th class="data-grid-th"><?= $escaper->escapeHtml(__('State')) ?></th>
-                <?php if ($canSwitch): ?>
-                    <th class="data-grid-th"><span class="admin__control-support-text">
-                        <?= $escaper->escapeHtml(__('Switch')) ?>
-                    </span></th>
-                <?php endif; ?>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($overview->sections() as $section): ?>
-                <tr class="<?= $section['off'] ? 'mcp-sections__row--off' : '' ?>">
-                    <td><strong><?= $escaper->escapeHtml($section['label']) ?></strong></td>
-                    <td class="mcp-sections__modules">
+    <?php if ($canSwitch): ?>
+        <div class="hui-notice mcp-sections__status" data-role="mcp-sections-status" role="status" tabindex="-1"
+             hidden>
+            <div class="hui-notice__text" data-role="mcp-sections-status-text"></div>
+        </div>
+    <?php endif; ?>
+    <ul class="hui-list">
+        <?php foreach ($overview->sections() as $index => $section): ?>
+            <?php $titleId = 'mcp-section-' . (int) $index; ?>
+            <li class="hui-list__row<?= $section['off'] ? ' hui-list__row--muted' : '' ?>" data-role="mcp-section"
+                data-section="<?= $escaper->escapeHtmlAttr($section['code']) ?>">
+                <div class="hui-list__main">
+                    <span class="hui-list__title" id="<?= $escaper->escapeHtmlAttr($titleId) ?>">
+                        <?= $escaper->escapeHtml($section['label']) ?>
+                    </span>
+                    <span class="hui-list__meta">
+                        <span class="hui-sr-only"><?= $escaper->escapeHtml(__('Modules')) ?>:</span>
                         <?= $escaper->escapeHtml(implode(', ', $section['modules'])) ?>
-                    </td>
-                    <td><?= (int) $section['abilities'] ?></td>
-                    <td><?= (int) $section['exposed'] ?></td>
-                    <td>
-                        <span class="mcp-status mcp-status--<?= $section['off'] ? 'denied' : 'exposed' ?>">
-                            <span class="mcp-status__dot" aria-hidden="true"></span>
+                    </span>
+                </div>
+                <div class="hui-list__aside">
+                    <span class="hui-list__badges">
+                        <span class="hui-badge">
+                            <?= $escaper->escapeHtml(__('Abilities')) ?>
+                            <strong><?= (int) $section['abilities'] ?></strong>
+                        </span>
+                        <span class="hui-badge">
+                            <?= $escaper->escapeHtml(__('Exposed')) ?>
+                            <strong data-role="mcp-section-exposed"><?= (int) $section['exposed'] ?></strong>
+                        </span>
+                    </span>
+                    <span class="hui-badge hui-badge--<?= $section['off'] ? 'off' : 'on' ?>"
+                          data-role="mcp-section-state">
+                        <span class="hui-badge__dot" aria-hidden="true"></span>
+                        <span data-role="mcp-section-state-text">
                             <?= $escaper->escapeHtml($section['off'] ? __('Off') : __('On')) ?>
                         </span>
-                    </td>
+                    </span>
                     <?php if ($canSwitch): ?>
-                        <td>
-                            <form method="post" action="<?= $escaper->escapeUrl($overview->switchUrl($section)) ?>">
-                                <input type="hidden" name="form_key"
-                                       value="<?= $escaper->escapeHtmlAttr($block->getFormKey()) ?>">
-                                <input type="hidden" name="section"
-                                       value="<?= $escaper->escapeHtmlAttr($section['code']) ?>">
-                                <button type="submit" class="action-secondary">
+                        <form method="post" data-role="mcp-section-switch"
+                              action="<?= $escaper->escapeUrl($overview->switchUrl($section)) ?>">
+                            <input type="hidden" name="form_key"
+                                   value="<?= $escaper->escapeHtmlAttr($block->getFormKey()) ?>">
+                            <input type="hidden" name="section"
+                                   value="<?= $escaper->escapeHtmlAttr($section['code']) ?>">
+                            <button type="submit" class="hui-switch hui-switch--small" role="switch"
+                                    data-role="mcp-section-toggle"
+                                    aria-checked="<?= $section['off'] ? 'false' : 'true' ?>"
+                                    aria-describedby="<?= $escaper->escapeHtmlAttr($titleId) ?>">
+                                <span class="hui-switch__track" aria-hidden="true">
+                                    <span class="hui-switch__knob"></span>
+                                </span>
+                                <span class="hui-switch__text" data-role="mcp-section-toggle-text">
                                     <?= $escaper->escapeHtml($section['off'] ? __('Switch on') : __('Switch off')) ?>
-                                </button>
-                            </form>
-                        </td>
+                                </span>
+                            </button>
+                        </form>
                     <?php endif; ?>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+                </div>
+            </li>
+        <?php endforeach; ?>
+    </ul>
 </section>
+<?php if ($mountConfig !== ''): ?>
+    <script type="text/x-magento-init">
+        <?= /* @noEscape */ $mountConfig ?>
+    </script>
+<?php endif; ?>

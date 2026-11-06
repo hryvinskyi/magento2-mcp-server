@@ -26,12 +26,6 @@ use Magento\Store\Model\StoreManagerInterface;
  */
 class OriginPolicy implements ResetAfterRequestInterface
 {
-    /**
-     * The host of an absolute URL: after the scheme and any user info, up to the port, path, query or fragment
-     */
-    private const HOST_PATTERN = '~^[a-z][a-z0-9+.\-]*://(?:[^@/?#]*@)?'
-        . '(\[[0-9a-f:.]+\]|[^:/?#@\[\]\s]+)(?::\d*)?(?:[/?#]|$)~i';
-
     private const BASE_URL_PATHS = [
         'web/unsecure/base_url',
         'web/secure/base_url',
@@ -47,10 +41,12 @@ class OriginPolicy implements ResetAfterRequestInterface
     /**
      * @param StoreManagerInterface $storeManager
      * @param ScopeConfigInterface $scopeConfig
+     * @param UrlHost $urlHost
      */
     public function __construct(
         private readonly StoreManagerInterface $storeManager,
-        private readonly ScopeConfigInterface $scopeConfig
+        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly UrlHost $urlHost
     ) {
     }
 
@@ -66,7 +62,7 @@ class OriginPolicy implements ResetAfterRequestInterface
             return true;
         }
 
-        $host = $this->hostOf($origin);
+        $host = $this->urlHost->of($origin);
 
         return $host !== null && isset($this->servedHosts()[$host]);
     }
@@ -96,7 +92,7 @@ class OriginPolicy implements ResetAfterRequestInterface
         foreach ($this->storeManager->getStores(true) as $store) {
             foreach (self::BASE_URL_PATHS as $path) {
                 $url = $this->scopeConfig->getValue($path, ScopeInterface::SCOPE_STORE, $store->getId());
-                $host = is_string($url) ? $this->hostOf($url) : null;
+                $host = is_string($url) ? $this->urlHost->of($url) : null;
                 if ($host !== null) {
                     $hosts[$host] = true;
                 }
@@ -104,16 +100,5 @@ class OriginPolicy implements ResetAfterRequestInterface
         }
 
         return $this->hosts = $hosts;
-    }
-
-    /**
-     * The lowercase host of a URL, or null when it has none
-     *
-     * @param string $url
-     * @return string|null
-     */
-    private function hostOf(string $url): ?string
-    {
-        return preg_match(self::HOST_PATTERN, trim($url), $matches) === 1 ? strtolower($matches[1]) : null;
     }
 }

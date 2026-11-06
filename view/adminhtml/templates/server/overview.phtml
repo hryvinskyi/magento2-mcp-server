@@ -7,12 +7,19 @@
 
 declare(strict_types=1);
 
+use Hryvinskyi\McpServer\ViewModel\IntegrationAccess;
 use Hryvinskyi\McpServer\ViewModel\ServerOverview;
 use Magento\Framework\Escaper;
 use Magento\Framework\View\Element\Template;
 
 /**
- * The MCP Server page above the ability catalog: the server's state and how a client connects
+ * The MCP Server page above the ability catalog: the server's state, how a client connects, and how to install it
+ *
+ * Three cards drawn with the admin UI kit: the connection (endpoint, the integration whose token a client uses, the
+ * token field), the install targets with the manual configurations folded away, and the technical details, folded
+ * away too. The root carries the kit's `hui` class, so the kit's base rules (and its `[hidden]` rule, on which the
+ * install links and the integration notes rely) reach only this module's own markup. The integrations are read once:
+ * every read rebuilds the ACL of each of them.
  *
  * @var Template $block
  * @var Escaper $escaper
@@ -21,178 +28,424 @@ $overview = $block->getData('overview');
 if (!$overview instanceof ServerOverview) {
     return;
 }
+$access = $block->getData('integration_access');
+$access = $access instanceof IntegrationAccess ? $access : null;
+$canPick = $access !== null && $access->canPick();
+$integrations = $canPick ? $access->integrations() : [];
+$newIntegrationUrl = $canPick ? $access->newIntegrationUrl() : null;
+$bearerAccepted = $access === null || $access->tokensAcceptedAsBearer();
+$bearerSettingsUrl = $bearerAccepted ? null : $access->bearerSettingsUrl();
 $configUrl = $overview->configUrl();
-$state = !$overview->isEnabled() ? 'off' : ($overview->isReadOnlyMode() ? 'read-only' : 'on');
+$stateTone = !$overview->isEnabled() ? 'off' : ($overview->isReadOnlyMode() ? 'warn' : 'on');
+$stateClass = 'hui-badge hui-badge--' . $stateTone;
 $clients = ['claude' => __('Claude Desktop'), 'cursor' => __('Cursor')];
 $transports = ['http' => __('HTTP endpoint'), 'stdio' => __('Local stdio')];
+$svg = '<svg class="hui-icon hui-icon--%2$d%3$s" viewBox="0 0 16 16" aria-hidden="true" focusable="false">'
+    . '<path d="%1$s" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"'
+    . ' stroke-linejoin="round"/></svg>';
+$paths = [
+    'connection' => 'M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 0 1 4.5 8l1-1',
+    'install' => 'M2.5 5 8 2.5 13.5 5v6L8 13.5 2.5 11V5zM2.5 5 8 7.5 13.5 5M8 7.5v6',
+    'download' => 'M8 2.5v7.5M4.75 6.75 8 10l3.25-3.25M3 13.5h10',
+    'plus' => 'M8 3.5v9M3.5 8h9',
+    'chevron' => 'M5.5 7.5 10 12l4.5-4.5',
+    'warning' => 'M8 2 1.5 13.5h13L8 2zM8 6.5v3M8 11.75v.01',
+    'info' => 'M8 14.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM8 7.25v4M8 4.75v.01',
+];
+$icons = [
+    'connection' => sprintf($svg, $paths['connection'], 18, ''),
+    'install' => sprintf($svg, $paths['install'], 18, ''),
+    'download' => sprintf($svg, $paths['download'], 16, ''),
+    'plus' => sprintf($svg, $paths['plus'], 16, ''),
+    'warning' => sprintf($svg, $paths['warning'], 16, ' hui-notice__icon'),
+    'info' => sprintf($svg, $paths['info'], 16, ' hui-notice__icon'),
+];
+$chevron = '<svg class="hui-icon hui-icon--20 hui-select__chevron" viewBox="0 0 20 20" aria-hidden="true"'
+    . ' focusable="false"><path d="' . $paths['chevron'] . '" fill="none" stroke="currentColor"'
+    . ' stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 ?>
-<div class="mcp-server" data-role="mcp-connection-card">
+<div class="hui hui-stack mcp-overview" data-role="mcp-connection-card">
     <?php if (!$overview->isEnabled()): ?>
-        <div class="message message-warning mcp-server__message">
-            <?= $escaper->escapeHtml(__(
-                'The MCP server is disabled: clients are refused. The catalog below shows what would be exposed.'
-            )) ?>
+        <div class="hui-notice" data-tone="warning">
+            <?= /* @noEscape */ $icons['warning'] ?>
+            <div class="hui-notice__text">
+                <?= $escaper->escapeHtml(__(
+                    'The MCP server is disabled: clients are refused. The catalog below shows what would be exposed.'
+                )) ?>
+            </div>
             <?php if ($configUrl !== null): ?>
-                <a href="<?= $escaper->escapeUrl($configUrl) ?>">
+                <a class="hui-notice__action hui-button hui-button--anchor hui-button--tertiary"
+                   href="<?= $escaper->escapeUrl($configUrl) ?>">
                     <?= $escaper->escapeHtml(__('Enable in configuration')) ?>
                 </a>
             <?php endif; ?>
         </div>
     <?php elseif ($overview->isReadOnlyMode()): ?>
-        <div class="message message-notice mcp-server__message">
-            <?= $escaper->escapeHtml(__(
-                'Read-only mode is on: every ability that does not only read is blocked for all clients, '
-                . 'whatever their ACL.'
-            )) ?>
+        <div class="hui-notice">
+            <?= /* @noEscape */ $icons['info'] ?>
+            <div class="hui-notice__text">
+                <?= $escaper->escapeHtml(__(
+                    'Read-only mode is on: every ability that does not only read is blocked for all clients, '
+                    . 'whatever their ACL.'
+                )) ?>
+            </div>
             <?php if ($configUrl !== null): ?>
-                <a href="<?= $escaper->escapeUrl($configUrl) ?>"><?= $escaper->escapeHtml(__('Change')) ?></a>
+                <a class="hui-notice__action hui-button hui-button--anchor hui-button--tertiary"
+                   href="<?= $escaper->escapeUrl($configUrl) ?>"><?= $escaper->escapeHtml(__('Change')) ?></a>
             <?php endif; ?>
         </div>
     <?php endif; ?>
     <?php if ($overview->isEnabled() && $overview->sendsPersonalData()): ?>
-        <div class="message message-notice mcp-server__message">
-            <?= $escaper->escapeHtml(__(
-                'Some abilities send personal data to clients, and through them to the clients\' AI providers. A data '
-                . 'processing agreement with each provider must cover it.'
-            )) ?>
+        <div class="hui-notice">
+            <?= /* @noEscape */ $icons['info'] ?>
+            <div class="hui-notice__text">
+                <?= $escaper->escapeHtml(__(
+                    'Some abilities send personal data to clients, and through them to the clients\' AI providers. '
+                    . 'A data processing agreement with each provider must cover it.'
+                )) ?>
+            </div>
             <?php if ($configUrl !== null): ?>
-                <a href="<?= $escaper->escapeUrl($configUrl) ?>"><?= $escaper->escapeHtml(__('Change')) ?></a>
+                <a class="hui-notice__action hui-button hui-button--anchor hui-button--tertiary"
+                   href="<?= $escaper->escapeUrl($configUrl) ?>"><?= $escaper->escapeHtml(__('Change')) ?></a>
             <?php endif; ?>
         </div>
     <?php endif; ?>
 
-    <section class="mcp-card" aria-labelledby="mcp-connection-title">
-        <header class="mcp-card__header">
-            <h2 class="mcp-card__title" id="mcp-connection-title"><?= $escaper->escapeHtml(__('Connection')) ?></h2>
-            <span class="mcp-state mcp-state--<?= $escaper->escapeHtmlAttr($state) ?>">
-                <span class="mcp-state__dot" aria-hidden="true"></span>
-                <?= $escaper->escapeHtml($overview->statusText()) ?>
-            </span>
-        </header>
-        <div class="mcp-card__body">
-            <div class="mcp-card__facts">
-                <div class="mcp-field">
-                    <div class="mcp-field__label">
-                        <?= $escaper->escapeHtml(__('Endpoint URL (Streamable HTTP)')) ?>
+    <div class="hui-grid">
+        <section class="hui-card" aria-labelledby="mcp-connection-title">
+            <header class="hui-card__head">
+                <span class="hui-card__tile"><?= /* @noEscape */ $icons['connection'] ?></span>
+                <h2 class="hui-card__title" id="mcp-connection-title">
+                    <?= $escaper->escapeHtml(__('Connection')) ?>
+                </h2>
+                <div class="hui-card__aside">
+                    <span class="<?= $escaper->escapeHtmlAttr($stateClass) ?>" data-role="mcp-state">
+                        <span class="hui-badge__dot" aria-hidden="true"></span>
+                        <?= $escaper->escapeHtml($overview->statusText()) ?>
+                    </span>
+                </div>
+            </header>
+            <div class="hui-card__body">
+                <div class="hui-field">
+                    <div class="hui-field__head">
+                        <span class="hui-field__label" id="mcp-endpoint-label">
+                            <?= $escaper->escapeHtml(__('Endpoint')) ?>
+                        </span>
+                        <span class="hui-field__tag"><?= $escaper->escapeHtml(__('Streamable HTTP')) ?></span>
                     </div>
-                    <div class="mcp-copy">
-                        <code id="mcp-endpoint"><?= $escaper->escapeHtml($overview->endpointUrl()) ?></code>
-                        <button type="button" class="action-secondary" data-role="mcp-copy"
-                                data-copy-target="mcp-endpoint"><?= $escaper->escapeHtml(__('Copy')) ?></button>
+                    <div class="hui-code">
+                        <pre class="hui-code__block" tabindex="0" aria-labelledby="mcp-endpoint-label"><code
+                                id="mcp-endpoint"><?= $escaper->escapeHtml($overview->endpointUrl()) ?></code></pre>
+                        <div class="hui-code__actions">
+                            <button type="button" class="hui-button hui-button--tertiary" data-role="mcp-copy"
+                                    data-copy-target="mcp-endpoint"><?= $escaper->escapeHtml(__('Copy')) ?></button>
+                        </div>
                     </div>
                 </div>
-                <div class="mcp-field">
-                    <div class="mcp-field__label">
-                        <?= $escaper->escapeHtml(__(
-                            'Local stdio command (runs on the server, acts as one admin user)'
-                        )) ?>
-                    </div>
-                    <div class="mcp-copy">
-                        <code id="mcp-stdio-command"><?= $escaper->escapeHtml($overview->stdioCommand()) ?></code>
-                        <button type="button" class="action-secondary" data-role="mcp-copy"
-                                data-copy-target="mcp-stdio-command"><?= $escaper->escapeHtml(__('Copy')) ?></button>
-                    </div>
-                </div>
-                <div class="mcp-field">
-                    <div class="mcp-field__label"><?= $escaper->escapeHtml(__('How to authorize')) ?></div>
-                    <div class="mcp-auth">
-                        <div class="mcp-auth__option">
-                            <div class="mcp-auth__title">
-                                <?= $escaper->escapeHtml(__('Integration token')) ?>
-                                <span class="mcp-auth__badge"><?= $escaper->escapeHtml(__('recommended')) ?></span>
+                <?php if ($canPick): ?>
+                    <div class="hui-field">
+                        <div class="hui-field__head">
+                            <label class="hui-field__label" for="mcp-integration">
+                                <?= $escaper->escapeHtml(__('Integration')) ?>
+                            </label>
+                        </div>
+                        <div class="hui-input-row">
+                            <div class="hui-select hui-select--long">
+                                <select id="mcp-integration" class="hui-select__control" data-role="mcp-integration"
+                                        autocomplete="off">
+                                    <option value=""><?= $escaper->escapeHtml(__('Paste a token by hand')) ?></option>
+                                    <?php foreach ($integrations as $integration): ?>
+                                        <option value="<?= (int) $integration['id'] ?>"
+                                                data-ready="<?= $integration['ready'] ? '1' : '0' ?>">
+                                            <?= $escaper->escapeHtml($integration['name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?= /* @noEscape */ $chevron ?>
                             </div>
-                            <p><?= $escaper->escapeHtml(__(
-                                'Create an integration with the "Use the MCP endpoint" resource plus the resources the '
-                                . 'client may use, and send its access token as a Bearer token. Its resources are '
-                                . 'exactly what the client may do.'
-                            )) ?></p>
+                            <?php if ($newIntegrationUrl !== null): ?>
+                                <a class="hui-button hui-button--anchor hui-button--secondary hui-button--control"
+                                   target="_blank" rel="noopener" href="<?= $escaper->escapeUrl($newIntegrationUrl) ?>"
+                                   data-role="mcp-new-integration">
+                                    <?= /* @noEscape */ $icons['plus'] ?>
+                                    <span><?= $escaper->escapeHtml(__('New integration')) ?></span>
+                                </a>
+                            <?php endif; ?>
                         </div>
-                        <div class="mcp-auth__option">
-                            <div class="mcp-auth__title"><?= $escaper->escapeHtml(__('Admin token')) ?></div>
-                            <p><?= $escaper->escapeHtml(__(
-                                'Request one with POST /V1/integration/admin/token. Calls run with that admin\'s whole '
-                                . 'role, and the token expires after the admin token lifetime set in the store\'s '
-                                . 'settings.'
-                            )) ?></p>
+                        <?php foreach ($integrations as $integration): ?>
+                            <?php if (!$integration['ready']): ?>
+                                <p class="hui-notice" data-tone="warning"
+                                   data-integration-note="<?= (int) $integration['id'] ?>" hidden>
+                                    <span class="hui-notice__text">
+                                        <?= $escaper->escapeHtml($integration['reason']) ?>
+                                    </span>
+                                    <?php $editLabel = __('Edit integration'); ?>
+                                    <a class="hui-notice__action hui-button hui-button--anchor hui-button--tertiary"
+                                       href="<?= $escaper->escapeUrl($integration['editUrl']) ?>"
+                                       target="_blank" rel="noopener"><?= $escaper->escapeHtml($editLabel) ?></a>
+                                </p>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                        <p class="hui-field__help" data-role="mcp-integration-status" aria-live="polite"></p>
+                    </div>
+                <?php endif; ?>
+                <div class="hui-field">
+                    <div class="hui-field__head">
+                        <label class="hui-field__label" for="mcp-access-token">
+                            <?= $escaper->escapeHtml(__('Access token')) ?>
+                        </label>
+                    </div>
+                    <p class="hui-field__help" id="mcp-access-token-help">
+                        <?= $escaper->escapeHtml($canPick
+                            ? __(
+                                'Picking an integration fetches its token from the store. A token pasted by hand '
+                                . 'stays in this browser tab and is never sent to the store.'
+                            )
+                            : __(
+                                'Paste the integration\'s access token to fill it into the links and '
+                                . 'configurations below. It stays in this browser tab and is never sent to the '
+                                . 'store.'
+                            )) ?>
+                    </p>
+                    <input type="password" id="mcp-access-token" class="hui-input hui-input--long hui-input--mono"
+                           data-role="mcp-token" autocomplete="new-password" spellcheck="false"
+                           aria-describedby="mcp-access-token-help">
+                    <p class="hui-field__error" data-role="mcp-token-hint" hidden>
+                        <?= $escaper->escapeHtml(__(
+                            'That is not a token: use only letters, digits and . _ ~ + / = -'
+                        )) ?>
+                    </p>
+                </div>
+                <?php if (!$bearerAccepted): ?>
+                    <div class="hui-notice" data-tone="warning" data-role="mcp-bearer-warning">
+                        <?= /* @noEscape */ $icons['warning'] ?>
+                        <div class="hui-notice__text">
+                            <?= $escaper->escapeHtml(__(
+                                'Integration tokens are not accepted as Bearer tokens, so the store refuses every MCP '
+                                . 'client that sends one. Turn on "Allow OAuth Access Tokens to be used as standalone '
+                                . 'Bearer tokens" in the OAuth settings.'
+                            )) ?>
+                        </div>
+                        <?php if ($bearerSettingsUrl !== null): ?>
+                            <a class="hui-notice__action hui-button hui-button--anchor hui-button--tertiary"
+                               href="<?= $escaper->escapeUrl($bearerSettingsUrl) ?>">
+                                <?= $escaper->escapeHtml(__('Open the OAuth settings')) ?>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <section class="hui-card" aria-labelledby="mcp-install-title">
+            <header class="hui-card__head">
+                <span class="hui-card__tile"><?= /* @noEscape */ $icons['install'] ?></span>
+                <h2 class="hui-card__title" id="mcp-install-title"><?= $escaper->escapeHtml(__('Install')) ?></h2>
+            </header>
+            <div class="hui-card__body">
+                <div class="hui-field">
+                    <div class="hui-actions">
+                        <a class="hui-button hui-button--anchor hui-button--primary"
+                           href="<?= $escaper->escapeUrl($overview->extensionUrl()) ?>"
+                           data-role="mcp-extension-download">
+                            <?= /* @noEscape */ $icons['download'] ?>
+                            <span><?= $escaper->escapeHtml(__('Download for Claude Desktop (.mcpb)')) ?></span>
+                        </a>
+                        <a class="hui-button hui-button--anchor hui-button--secondary" data-install="cursor" hidden>
+                            <?= $escaper->escapeHtml(__('Add to Cursor')) ?>
+                        </a>
+                        <a class="hui-button hui-button--anchor hui-button--secondary" data-install="vscode" hidden>
+                            <?= $escaper->escapeHtml(__('Install in VS Code')) ?>
+                        </a>
+                    </div>
+                    <p class="hui-field__help"><?= $escaper->escapeHtml(__(
+                        'Open the file with Claude Desktop; it asks for the access token and keeps it in the system\'s '
+                        . 'keychain.'
+                    )) ?></p>
+                    <p class="hui-field__help mcp-install-waiting"><?= $escaper->escapeHtml(__(
+                        'Cursor and VS Code appear here once the access token is filled in.'
+                    )) ?></p>
+                </div>
+
+                <div class="hui-field" data-role="mcp-claude-code" hidden>
+                    <div class="hui-field__head">
+                        <span class="hui-field__label" id="mcp-claude-code-label">
+                            <?= $escaper->escapeHtml(__('Claude Code')) ?>
+                        </span>
+                    </div>
+                    <div class="hui-code">
+                        <pre class="hui-code__block" tabindex="0" aria-labelledby="mcp-claude-code-label"><span
+                                class="hui-code__prompt" aria-hidden="true">$ </span><code
+                                id="mcp-claude-code-command" data-install="claude-code"></code></pre>
+                        <div class="hui-code__actions">
+                            <button type="button" class="hui-button hui-button--tertiary" data-role="mcp-copy"
+                                    data-copy-target="mcp-claude-code-command">
+                                <?= $escaper->escapeHtml(__('Copy')) ?>
+                            </button>
                         </div>
                     </div>
                 </div>
-                <dl class="mcp-facts">
-                    <div>
-                        <dt><?= $escaper->escapeHtml(__('Protocol')) ?></dt>
-                        <dd>MCP <?= $escaper->escapeHtml($overview->protocolVersion()) ?></dd>
+
+                <details class="hui-disclosure hui-disclosure--boxed">
+                    <summary class="hui-disclosure__summary">
+                        <?= $escaper->escapeHtml(__('Manual configuration')) ?>
+                    </summary>
+                    <div class="hui-disclosure__body">
+                        <?php foreach (array_keys($clients) as $index => $client): ?>
+                            <input type="radio" class="hui-sr-only" name="mcp-client"
+                                   id="mcp-client-<?= $escaper->escapeHtmlAttr($client) ?>"
+                                   <?= $index === 0 ? 'checked' : '' ?>>
+                        <?php endforeach; ?>
+                        <?php foreach (array_keys($transports) as $index => $transport): ?>
+                            <input type="radio" class="hui-sr-only" name="mcp-transport"
+                                   id="mcp-transport-<?= $escaper->escapeHtmlAttr($transport) ?>"
+                                   <?= $index === 0 ? 'checked' : '' ?>>
+                        <?php endforeach; ?>
+                        <div class="hui-actions mcp-switches">
+                            <div class="mcp-segmented" role="group"
+                                 aria-label="<?= $escaper->escapeHtmlAttr(__('Client')) ?>">
+                                <?php foreach ($clients as $client => $label): ?>
+                                    <label class="mcp-segmented__option
+                                              mcp-segmented__option--client-<?= $escaper->escapeHtmlAttr($client) ?>"
+                                           for="mcp-client-<?= $escaper->escapeHtmlAttr($client) ?>">
+                                        <?= $escaper->escapeHtml($label) ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="mcp-segmented" role="group"
+                                 aria-label="<?= $escaper->escapeHtmlAttr(__('Transport')) ?>">
+                                <?php foreach ($transports as $transport => $label): ?>
+                                    <label class="mcp-segmented__option
+                                        mcp-segmented__option--transport-<?= $escaper->escapeHtmlAttr($transport) ?>"
+                                           for="mcp-transport-<?= $escaper->escapeHtmlAttr($transport) ?>">
+                                        <?= $escaper->escapeHtml($label) ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="mcp-snippets">
+                            <?php foreach ($overview->snippets() as $snippet): ?>
+                                <?php $codeId = 'mcp-snippet-' . $snippet['id']; ?>
+                                <?php $codeIdAttr = $escaper->escapeHtmlAttr($codeId); ?>
+                                <div class="hui-field mcp-snippet"
+                                     data-snippet="<?= $escaper->escapeHtmlAttr($snippet['id']) ?>">
+                                    <div class="hui-field__head">
+                                        <span class="hui-badge hui-badge--code">
+                                            <?= $escaper->escapeHtml($snippet['file']) ?>
+                                        </span>
+                                    </div>
+                                    <div class="hui-code">
+                                        <?php $json = $escaper->escapeHtml($snippet['json']); ?>
+                                        <pre class="hui-code__block" tabindex="0" data-token-slot
+                                             id="<?= /* @noEscape */ $codeIdAttr ?>"><?= /* @noEscape */ $json ?></pre>
+                                        <div class="hui-code__actions">
+                                            <button type="button" class="hui-button hui-button--tertiary"
+                                                    data-role="mcp-copy"
+                                                    data-copy-target="<?= /* @noEscape */ $codeIdAttr ?>">
+                                                <?= $escaper->escapeHtml(__('Copy JSON')) ?>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="hui-field__help"><?= $escaper->escapeHtml($snippet['hint']) ?></p>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
-                    <div>
-                        <dt><?= $escaper->escapeHtml(__('Abilities')) ?></dt>
-                        <dd><?= (int) $overview->abilityCount() ?></dd>
+                </details>
+            </div>
+        </section>
+
+        <details class="hui-disclosure hui-disclosure--boxed hui-grid__full mcp-details">
+            <summary class="hui-disclosure__summary">
+                <span class="hui-card__title"><?= $escaper->escapeHtml(__('Details')) ?></span>
+                <span class="hui-card__subtitle">
+                    <?= $escaper->escapeHtml(__('stdio command, how to authorize, protocol')) ?>
+                </span>
+            </summary>
+            <div class="hui-disclosure__body">
+                <?php $stdioCommand = $overview->stdioCommand(); ?>
+                <div class="hui-field">
+                    <div class="hui-field__head">
+                        <span class="hui-field__label" id="mcp-stdio-label"><?= $escaper->escapeHtml(__(
+                            'Local stdio command (runs on the server, acts as one admin user)'
+                        )) ?></span>
                     </div>
-                    <div>
-                        <dt><?= $escaper->escapeHtml(__('Exposed')) ?></dt>
-                        <dd><?= (int) $overview->exposedCount() ?></dd>
+                    <div class="hui-code">
+                        <pre class="hui-code__block" tabindex="0" aria-labelledby="mcp-stdio-label"><span
+                                class="hui-code__prompt" aria-hidden="true">$ </span><code
+                                id="mcp-stdio-command"><?= $escaper->escapeHtml($stdioCommand) ?></code></pre>
+                        <div class="hui-code__actions">
+                            <button type="button" class="hui-button hui-button--tertiary" data-role="mcp-copy"
+                                    data-copy-target="mcp-stdio-command">
+                                <?= $escaper->escapeHtml(__('Copy')) ?>
+                            </button>
+                        </div>
                     </div>
-                    <div>
-                        <dt><?= $escaper->escapeHtml(__('Personal data')) ?></dt>
-                        <dd><?= $escaper->escapeHtml($overview->personalDataText()) ?></dd>
+                </div>
+
+                <div class="hui-field">
+                    <div class="hui-field__head">
+                        <span class="hui-field__label"><?= $escaper->escapeHtml(__('How to authorize')) ?></span>
+                    </div>
+                    <div class="hui-grid">
+                        <div class="hui-panel">
+                            <div class="hui-panel__head">
+                                <h3 class="hui-panel__title"><?= $escaper->escapeHtml(__('Integration token')) ?></h3>
+                                <span class="hui-badge hui-badge--recommended">
+                                    <?= $escaper->escapeHtml(__('recommended')) ?>
+                                </span>
+                            </div>
+                            <div class="hui-panel__body">
+                                <p><?= $escaper->escapeHtml(__(
+                                    'Create an integration with the "Use the MCP endpoint" resource plus the resources '
+                                    . 'the client may use, and send its access token as a Bearer token. Its resources '
+                                    . 'are exactly what the client may do.'
+                                )) ?></p>
+                            </div>
+                        </div>
+                        <div class="hui-panel">
+                            <div class="hui-panel__head">
+                                <h3 class="hui-panel__title"><?= $escaper->escapeHtml(__('Admin token')) ?></h3>
+                            </div>
+                            <div class="hui-panel__body">
+                                <p><?= $escaper->escapeHtml(__(
+                                    'Request one with POST /V1/integration/admin/token. Calls run with that admin\'s '
+                                    . 'whole role, and the token expires after the admin token lifetime set in the '
+                                    . 'store\'s settings.'
+                                )) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <dl class="hui-facts" data-role="mcp-facts">
+                    <div class="hui-facts__item">
+                        <dt class="hui-facts__label"><?= $escaper->escapeHtml(__('Protocol')) ?></dt>
+                        <dd class="hui-facts__value">MCP <?= $escaper->escapeHtml($overview->protocolVersion()) ?></dd>
+                    </div>
+                    <div class="hui-facts__item">
+                        <dt class="hui-facts__label"><?= $escaper->escapeHtml(__('Abilities')) ?></dt>
+                        <dd class="hui-facts__value"><?= (int) $overview->abilityCount() ?></dd>
+                    </div>
+                    <div class="hui-facts__item">
+                        <dt class="hui-facts__label"><?= $escaper->escapeHtml(__('Exposed')) ?></dt>
+                        <dd class="hui-facts__value"
+                            data-role="mcp-exposed-total"><?= (int) $overview->exposedCount() ?></dd>
+                    </div>
+                    <div class="hui-facts__item">
+                        <dt class="hui-facts__label"><?= $escaper->escapeHtml(__('Personal data')) ?></dt>
+                        <dd class="hui-facts__value"><?= $escaper->escapeHtml($overview->personalDataText()) ?></dd>
                     </div>
                 </dl>
             </div>
-            <div class="mcp-card__clients">
-                <div class="mcp-field__label"><?= $escaper->escapeHtml(__('Client configuration')) ?></div>
-                <?php foreach (array_keys($clients) as $index => $client): ?>
-                    <input type="radio" class="mcp-switch" name="mcp-client"
-                           id="mcp-client-<?= $escaper->escapeHtmlAttr($client) ?>"
-                           <?= $index === 0 ? 'checked' : '' ?>>
-                <?php endforeach; ?>
-                <?php foreach (array_keys($transports) as $index => $transport): ?>
-                    <input type="radio" class="mcp-switch" name="mcp-transport"
-                           id="mcp-transport-<?= $escaper->escapeHtmlAttr($transport) ?>"
-                           <?= $index === 0 ? 'checked' : '' ?>>
-                <?php endforeach; ?>
-                <div class="mcp-tabs" role="group" aria-label="<?= $escaper->escapeHtmlAttr(__('Client')) ?>">
-                    <?php foreach ($clients as $client => $label): ?>
-                        <label class="mcp-tabs__tab mcp-tabs__tab--<?= $escaper->escapeHtmlAttr($client) ?>"
-                               for="mcp-client-<?= $escaper->escapeHtmlAttr($client) ?>">
-                            <?= $escaper->escapeHtml($label) ?>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-                <div class="mcp-transports" role="group"
-                     aria-label="<?= $escaper->escapeHtmlAttr(__('Transport')) ?>">
-                    <?php foreach ($transports as $transport => $label): ?>
-                        <label for="mcp-transport-<?= $escaper->escapeHtmlAttr($transport) ?>"
-                               class="mcp-transports__option
-                                      mcp-transports__option--<?= $escaper->escapeHtmlAttr($transport) ?>">
-                            <?= $escaper->escapeHtml($label) ?>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-                <div class="mcp-snippets">
-                    <?php foreach ($overview->snippets() as $snippet): ?>
-                        <?php $codeId = 'mcp-snippet-' . $snippet['id']; ?>
-                        <div class="mcp-snippet" data-snippet="<?= $escaper->escapeHtmlAttr($snippet['id']) ?>">
-                            <div class="mcp-snippet__head">
-                                <span class="mcp-snippet__file"><?= $escaper->escapeHtml($snippet['file']) ?></span>
-                                <button type="button" class="action-secondary" data-role="mcp-copy"
-                                        data-copy-target="<?= $escaper->escapeHtmlAttr($codeId) ?>">
-                                    <?= $escaper->escapeHtml(__('Copy JSON')) ?>
-                                </button>
-                            </div>
-                            <?php $json = $escaper->escapeHtml($snippet['json']); ?>
-                            <pre class="mcp-snippet__code"
-                                 id="<?= $escaper->escapeHtmlAttr($codeId) ?>"><?= /* @noEscape */ $json ?></pre>
-                            <p class="mcp-snippet__hint"><?= $escaper->escapeHtml($snippet['hint']) ?></p>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-    </section>
+        </details>
+    </div>
 
     <?= $block->getChildHtml('sections') ?>
 
-    <div class="mcp-catalog__heading">
-        <h2 class="mcp-card__title"><?= $escaper->escapeHtml(__('Ability catalog')) ?></h2>
-        <span class="mcp-catalog__lead">
+    <div class="mcp-catalog-heading">
+        <h2 class="hui-card__title"><?= $escaper->escapeHtml(__('Ability catalog')) ?></h2>
+        <span class="hui-card__subtitle">
             <?= $escaper->escapeHtml(__('everything an agent can call, with the exposure decision for each')) ?>
         </span>
     </div>
@@ -200,3 +453,9 @@ $transports = ['http' => __('HTTP endpoint'), 'stdio' => __('Local stdio')];
 <script type="text/x-magento-init">
     <?= /* @noEscape */ $overview->mountConfig('[data-role="mcp-connection-card"]') ?>
 </script>
+<?php $pickerConfig = $access !== null ? $access->mountConfig('[data-role="mcp-connection-card"]') : ''; ?>
+<?php if ($pickerConfig !== ''): ?>
+    <script type="text/x-magento-init">
+        <?= /* @noEscape */ $pickerConfig ?>
+    </script>
+<?php endif; ?>

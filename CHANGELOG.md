@@ -5,6 +5,59 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-11-06
+
+### Added
+- **Install in one step** on the MCP Server page. Give the page an integration's access token and it fills it into an
+  **Add to Cursor** link, an **Install in VS Code** link and a Claude Code command (`claude mcp add --transport http
+  …`) with a copy button. A token pasted into the field stays in the browser tab and is never sent to the store. The
+  Cursor and VS Code links appear only while the field holds a valid token; the command and the JSON configurations
+  show the placeholder until then.
+- **Pick an integration instead of pasting its token.** The page lists the store's integrations and says whether each
+  can be used: it is active, its resources include **Use the MCP endpoint** (or all resources), and it has a token
+  that is not revoked. Picking a ready one fills its access token into the field, fetched from the store by a POST
+  with the form key to the new admin route `hryvinskyi_mcp/server/integrationtoken` (answered with `Cache-Control:
+  no-store`, and only to an admin who holds **View the MCP Server page** and Magento's **System Integrations**
+  resource, the right that shows tokens on the integration page). An integration that cannot be used says why and
+  links to its edit page, and its token is never served. **+ New integration** opens Magento's own form in a new tab.
+  An admin without **System Integrations** sees the manual field only; pasting a token by hand still works.
+- A **warning** on the connection card while integration tokens are not accepted as Bearer tokens, which makes the
+  store refuse every client that sends one, with a link to the OAuth settings for an admin who may open them.
+- **Download for Claude Desktop (.mcpb)**: an extension for Claude Desktop, built for the store when you download it
+  (it needs the `View the MCP Server page` resource, like the page). The download refuses an endpoint
+  the extension could not use: one with no host, one that is neither https nor http, plain http to a host other
+  than this computer, and one carrying a user name or password. Claude Desktop asks for the store endpoint,
+  already filled in and editable, and for the access token, which it keeps in the system's keychain. The extension is
+  named after the store's host, so several stores can be installed side by side. Its version (`1.0.0`) is separate from
+  the package version.
+- The extension runs a bridge written in Node.js, without dependencies, on the Node.js that ships with Claude Desktop.
+  It relays each message to the endpoint with the Bearer token. It opens a lost session again once and replays the
+  message, never retries a request, follows no redirect, and refuses an `http://` endpoint unless the host is
+  `localhost`, `127.0.0.1` or `[::1]`, and a URL with a user name or password. Once the session is open it sends
+  messages in parallel, so a long call blocks nothing. A refusal of a whole line (`id: null`) is answered once for
+  each request of the line, a batch as one array.
+
+### Fixed
+- The stdio transport answers a refusal of a whole line (`id: null`, for example a lost session or an Internal error)
+  once for each request on that line, with the request's own id; a batch gets one array. The client no longer waits
+  for its timeout.
+
+### Changed
+- The MCP Server page is redesigned on the shared admin UI kit: cards for the connection and the install targets, the
+  manual configurations and the technical details folded into collapsible blocks, snippets in a dark code block, the
+  sections as a card whose switches change a section without reloading the page. The ability catalog stays a Magento
+  listing with the admin theme's look; only the exposure and ACL cells its columns print are styled.
+- Requires `hryvinskyi/magento2-admin-ui` (module `Hryvinskyi_AdminUi`), which carries the page's look and typeface.
+  Run `bin/magento setup:upgrade` after the upgrade. On Magento 2.4.9 the admin action list is cached under the
+  `compiled_config` cache type, so the new admin route answers 404 until `bin/magento cache:clean compiled_config` (or
+  `cache:flush`) has run.
+- The server name and the endpoint have one owner, `Model\Admin\ClientConnectionInterface`, which the page and the
+  extension both use. The client configuration snippets have their own owner, `Model\Admin\ClientSnippetsInterface`.
+- `Model\Http\UrlHost` is the one place that reads the host of a URL; the origin check and the extension use it.
+- Requires `ext-zlib` (the extension is deflated in memory).
+- The tests no longer drive Catalog abilities, which this module does not depend on: unit fixtures use Store
+  vocabulary, and integration tests use Store routes, test Web API routes and a test pool ability.
+
 ## [1.3.0] - 2026-10-23
 
 ### Added

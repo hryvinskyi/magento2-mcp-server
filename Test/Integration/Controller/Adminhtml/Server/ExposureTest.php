@@ -32,10 +32,9 @@ class ExposureTest extends AbstractBackendController
     use ForgetsStoredNames;
     use SwitchesGraphQlSourceOff;
 
-    private const LIST_PRODUCTS = 'catalog.product_repository.get_list';
-    private const GET_PRODUCT = 'catalog.product_repository.get';
     private const LIST_STORES = 'store.store_repository.get_list';
     private const LIST_WEBSITES = 'store.website_repository.get_list';
+    private const STORE_CONFIGS = 'store.store_config_manager.get_store_configs';
 
     /**
      * @var string
@@ -45,7 +44,7 @@ class ExposureTest extends AbstractBackendController
     /**
      * @var string
      */
-    protected $uri = 'backend/mcpserver/server/exposure/change/deny/name/catalog.product_repository.get_list';
+    protected $uri = 'backend/mcpserver/server/exposure/change/deny/name/store.store_repository.get_list';
 
     /**
      * @var string
@@ -54,9 +53,9 @@ class ExposureTest extends AbstractBackendController
 
     public function testARowPutsItsAbilityOnTheDenyList(): void
     {
-        $this->post(['change' => 'deny', 'name' => self::LIST_PRODUCTS]);
+        $this->post(['change' => 'deny', 'name' => self::LIST_STORES]);
 
-        self::assertTrue($this->overrides()->get(self::LIST_PRODUCTS)?->isDenied());
+        self::assertTrue($this->overrides()->get(self::LIST_STORES)?->isDenied());
         $this->assertSessionMessages(
             self::equalTo(['A total of 1 abilities were changed.']),
             MessageInterface::TYPE_SUCCESS
@@ -65,17 +64,17 @@ class ExposureTest extends AbstractBackendController
 
     public function testTakingAnAbilityOffTheDenyListKeepsItsConfirmation(): void
     {
-        $override = $this->overrides()->get(self::LIST_PRODUCTS);
+        $override = $this->overrides()->get(self::LIST_STORES);
         $this->overrides()->save(
             ($override ?? $this->newOverride())
-                ->setAbility(self::LIST_PRODUCTS)
+                ->setAbility(self::LIST_STORES)
                 ->setDenied(true)
                 ->setNeedsConfirmation(true)
         );
 
-        $this->post(['change' => 'allow', 'name' => self::LIST_PRODUCTS]);
+        $this->post(['change' => 'allow', 'name' => self::LIST_STORES]);
 
-        $kept = $this->overrides()->get(self::LIST_PRODUCTS);
+        $kept = $this->overrides()->get(self::LIST_STORES);
         self::assertSame([false, true], [$kept?->isDenied(), $kept?->needsConfirmation()]);
     }
 
@@ -84,12 +83,12 @@ class ExposureTest extends AbstractBackendController
         $this->post([
             'change' => 'confirm',
             'namespace' => 'hryvinskyi_mcp_ability_listing',
-            'selected' => [self::LIST_PRODUCTS, self::GET_PRODUCT, 'catalog.nothing.here'],
+            'selected' => [self::LIST_STORES, self::LIST_WEBSITES, 'store.nothing.here'],
         ]);
 
-        self::assertTrue($this->overrides()->get(self::LIST_PRODUCTS)?->needsConfirmation());
-        self::assertTrue($this->overrides()->get(self::GET_PRODUCT)?->needsConfirmation());
-        self::assertNull($this->overrides()->get('catalog.nothing.here'));
+        self::assertTrue($this->overrides()->get(self::LIST_STORES)?->needsConfirmation());
+        self::assertTrue($this->overrides()->get(self::LIST_WEBSITES)?->needsConfirmation());
+        self::assertNull($this->overrides()->get('store.nothing.here'));
         $this->assertSessionMessages(
             self::equalTo(['A total of 2 abilities were changed.']),
             MessageInterface::TYPE_SUCCESS
@@ -101,15 +100,15 @@ class ExposureTest extends AbstractBackendController
         $this->post([
             'change' => 'confirm',
             'namespace' => 'hryvinskyi_mcp_ability_listing',
-            'excluded' => [self::GET_PRODUCT],
-            'search' => 'product_repository get',
+            'excluded' => [self::LIST_WEBSITES],
+            'search' => 'repository get_list',
             'filters' => ['source' => 'webapi', 'placeholder' => 'true'],
         ]);
 
-        self::assertTrue($this->overrides()->get(self::LIST_PRODUCTS)?->needsConfirmation());
-        self::assertNull($this->overrides()->get(self::GET_PRODUCT), 'Left out of the selection');
+        self::assertTrue($this->overrides()->get(self::LIST_STORES)?->needsConfirmation());
+        self::assertNull($this->overrides()->get(self::LIST_WEBSITES), 'Left out of the selection');
         self::assertNull(
-            $this->overrides()->get('catalog.product_repository.save'),
+            $this->overrides()->get(self::STORE_CONFIGS),
             'Not found by the search'
         );
     }
@@ -140,9 +139,9 @@ class ExposureTest extends AbstractBackendController
 
     public function testAnUnknownChangeChangesNothing(): void
     {
-        $this->post(['change' => 'erase', 'name' => self::LIST_PRODUCTS]);
+        $this->post(['change' => 'erase', 'name' => self::LIST_STORES]);
 
-        self::assertNull($this->overrides()->get(self::LIST_PRODUCTS));
+        self::assertNull($this->overrides()->get(self::LIST_STORES));
         $this->assertSessionMessages(self::equalTo(['Choose what to change.']), MessageInterface::TYPE_ERROR);
     }
 

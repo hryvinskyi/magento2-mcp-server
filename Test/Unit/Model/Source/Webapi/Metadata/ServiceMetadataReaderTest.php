@@ -24,7 +24,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ServiceMetadataReaderTest extends TestCase
 {
-    private const SERVICE = 'Magento\Catalog\Api\ProductRepositoryInterface';
+    private const SERVICE = 'Magento\Store\Api\StoreRepositoryInterface';
 
     /**
      * Metadata of getList as Magento's class reflector describes it
@@ -32,7 +32,7 @@ class ServiceMetadataReaderTest extends TestCase
      * @var array<string, mixed>
      */
     private const GET_LIST = [
-        'documentation' => 'Get product list',
+        'documentation' => 'Get store view list',
         'interface' => [
             'in' => [
                 'parameters' => [
@@ -80,7 +80,7 @@ class ServiceMetadataReaderTest extends TestCase
     public function testAMethodIsFoundByItsRealNameAmongTheAliases(): void
     {
         $serviceMetadata = $this->createStub(ServiceMetadata::class);
-        $serviceMetadata->method('getServiceName')->willReturn('catalogProductRepositoryV1');
+        $serviceMetadata->method('getServiceName')->willReturn('storeStoreRepositoryV1');
         $serviceMetadata->method('getServiceMetadata')->willReturn([
             'methods' => [
                 'save' => ['method' => 'save', 'documentation' => 'Save', 'interface' => []],
@@ -93,7 +93,7 @@ class ServiceMetadataReaderTest extends TestCase
 
         self::assertSame(
             [
-                'documentation' => 'Get product list',
+                'documentation' => 'Get store view list',
                 'parameters' => [
                     'searchCriteria' => [
                         'type' => 'FrameworkSearchCriteriaInterface',
@@ -138,7 +138,7 @@ class ServiceMetadataReaderTest extends TestCase
             ],
             $reader->typeOf('FrameworkSearchCriteriaInterface')
         );
-        self::assertNull($reader->typeOf('CatalogDataProductInterface'));
+        self::assertNull($reader->typeOf('StoreDataStoreInterface'));
     }
 
     public function testWhenTheMetadataCannotBeBuiltEachMethodIsReadFromItsClassAndTheFailureLoggedOnce(): void
@@ -149,7 +149,7 @@ class ServiceMetadataReaderTest extends TestCase
         $broken = $reader->methodOf('Acme\Shop\Api\BrokenInterface', 'register', 'V1');
         $reader->typeOf('FrameworkSearchCriteriaInterface');
 
-        self::assertSame('Get product list', $method['documentation'] ?? null);
+        self::assertSame('Get store view list', $method['documentation'] ?? null);
         self::assertNull($broken);
         self::assertCount(1, $this->logger->messages('warning'));
         self::assertStringContainsString('The "array" class', $this->logger->messages('warning')[0]);
@@ -170,7 +170,7 @@ class ServiceMetadataReaderTest extends TestCase
         $method = $reader->methodOf(self::SERVICE, 'getList', 'V1');
 
         self::assertSame(1, $builds, 'The next request reads by reflection without building again.');
-        self::assertSame('Get product list', $method['documentation'] ?? null);
+        self::assertSame('Get store view list', $method['documentation'] ?? null);
         self::assertCount(1, $this->logger->messages('warning'));
         self::assertCount(1, $cache->entries);
         foreach ($cache->entries as $entry) {
@@ -217,7 +217,7 @@ class ServiceMetadataReaderTest extends TestCase
     }
 
     /**
-     * A class reflector that reads the product repository and fails on any other class
+     * A class reflector that reads the store repository and fails on any other class
      *
      * @return ClassReflector
      */

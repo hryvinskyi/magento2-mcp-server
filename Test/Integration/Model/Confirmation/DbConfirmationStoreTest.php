@@ -33,8 +33,8 @@ class DbConfirmationStoreTest extends TestCase
 
     private const START = 1_800_000_000;
     private const SESSION = 'abababababababababababababababab';
-    private const ABILITY = 'catalog.product_repository.save';
-    private const ARGUMENTS = ['product' => ['sku' => 'A1', 'price' => 1.5]];
+    private const ABILITY = 'hryvinskyi_mcp_test.fixture.save';
+    private const ARGUMENTS = ['record' => ['code' => 'A1', 'sort_order' => 1.5]];
 
     /**
      * @var FixedWallClock
@@ -94,7 +94,7 @@ class DbConfirmationStoreTest extends TestCase
     public function testATokenConfirmsItsCallOnceWhateverTheOrderOfTheArgumentKeys(): void
     {
         $token = $this->store->issue(self::SESSION, $this->admin(1), self::ABILITY, self::ARGUMENTS)->getToken();
-        $reordered = ['product' => ['price' => 1.5, 'sku' => 'A1']];
+        $reordered = ['record' => ['sort_order' => 1.5, 'code' => 'A1']];
 
         self::assertTrue($this->store->consume($token, self::SESSION, $this->admin(1), self::ABILITY, $reordered));
         self::assertFalse($this->store->consume($token, self::SESSION, $this->admin(1), self::ABILITY, $reordered));
@@ -109,8 +109,8 @@ class DbConfirmationStoreTest extends TestCase
         return [
             'another session' => [str_repeat('cd', 16), 1, self::ABILITY, self::ARGUMENTS],
             'another caller' => [self::SESSION, 2, self::ABILITY, self::ARGUMENTS],
-            'another ability' => [self::SESSION, 1, 'catalog.product_repository.delete', self::ARGUMENTS],
-            'other arguments' => [self::SESSION, 1, self::ABILITY, ['product' => ['sku' => 'A2', 'price' => 1.5]]],
+            'another ability' => [self::SESSION, 1, 'hryvinskyi_mcp_test.fixture.delete', self::ARGUMENTS],
+            'other arguments' => [self::SESSION, 1, self::ABILITY, ['record' => ['code' => 'A2', 'sort_order' => 1.5]]],
         ];
     }
 

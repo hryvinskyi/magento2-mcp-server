@@ -12,8 +12,8 @@ namespace Hryvinskyi\McpServer\Test\Unit\Fake;
 use Magento\Framework\Acl\AclResource\ProviderInterface;
 
 /**
- * A small ACL tree shaped like Magento's: the admin root with Catalog, Sales and Stores, and Stores holding settings
- * and inventory, next to a tree that is not the admin's
+ * A small ACL tree shaped like Magento's: the admin root with System, Sales and Stores, System holding permissions
+ * three levels deep and Stores holding settings and inventory, next to a tree that is not the admin's
  */
 class FakeAclResources implements ProviderInterface
 {
@@ -24,10 +24,10 @@ class FakeAclResources implements ProviderInterface
     {
         return [
             ['id' => 'Magento_Backend::admin', 'title' => 'Magento Admin', 'children' => [
-                ['id' => 'Magento_Catalog::catalog', 'title' => 'Catalog', 'children' => [
-                    ['id' => 'Magento_Catalog::catalog_inventory', 'title' => 'Inventory', 'children' => [
-                        ['id' => 'Magento_Catalog::products', 'title' => 'Products', 'children' => [
-                            ['id' => 'Magento_Catalog::edit', 'title' => 'Edit Product Design', 'children' => []],
+                ['id' => 'Magento_Backend::system', 'title' => 'System', 'children' => [
+                    ['id' => 'Magento_User::acl', 'title' => 'Permissions', 'children' => [
+                        ['id' => 'Magento_User::acl_users', 'title' => 'All Users', 'children' => [
+                            ['id' => 'Magento_User::locks', 'title' => 'Locked Users', 'children' => []],
                         ]],
                     ]],
                 ]],

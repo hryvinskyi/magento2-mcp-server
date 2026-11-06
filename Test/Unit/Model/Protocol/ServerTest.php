@@ -501,7 +501,7 @@ class ServerTest extends TestCase
 
         $answer = $server->handle(
             '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"execute_ability",'
-            . '"arguments":{"name":"catalog.product_repository.get_list"}}}',
+            . '"arguments":{"name":"store.store_repository.get_list"}}}',
             $this->kit->context($session->getId())
         );
 

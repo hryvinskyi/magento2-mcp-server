@@ -10,49 +10,41 @@ declare(strict_types=1);
 namespace Hryvinskyi\McpServer\ViewModel;
 
 use Hryvinskyi\McpServer\Api\ConfigInterface;
-use Hryvinskyi\McpServer\Api\Data\Exposure;
 use Hryvinskyi\McpServer\Api\PersonalDataExceptionsInterface;
 use Hryvinskyi\McpServer\Api\PersonalDataPolicyInterface;
 use Hryvinskyi\McpServer\Model\Admin\AbilityRows;
+use Hryvinskyi\McpServer\Model\Admin\ClientConnectionInterface;
+use Hryvinskyi\McpServer\Model\Admin\ClientSnippetsInterface;
 use Hryvinskyi\McpServer\Model\Protocol\ProtocolVersions;
 use Magento\Backend\Model\UrlInterface as BackendUrl;
-use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\AuthorizationInterface;
 use Magento\Framework\Serialize\Serializer\JsonHexTag;
-use Magento\Framework\UrlInterface;
 use Magento\Framework\View\Element\Block\ArgumentInterface;
-use Magento\Store\Model\Store;
-use Magento\Store\Model\StoreManagerInterface;
 
 /**
  * What the MCP Server page shows above the catalog: the server's state and how a client connects to it
  *
- * - The endpoint is the default store view's secure base URL with the REST path of the MCP route; it is shown, not
- *   edited.
- * - A client configuration is given per client and transport. The token and the admin login are placeholders the
- *   admin fills in: no secret is ever printed into the page.
- * - Claude Desktop reaches an HTTP server with a Bearer token through the `mcp-remote` bridge; Cursor takes the URL
- *   and headers itself. Over stdio both start the server's console command with the PHP binary on the server.
+ * - The server's name and endpoint come from the client connection, so the page configures every client the same
+ *   way; the endpoint is shown, not edited.
+ * - The client configurations come from their own owner and carry placeholders for the token and the admin login:
+ *   no secret is ever printed into the page. A token pasted into the page stays in the browser; a token picked from
+ *   the store's integrations comes from the store through the integration token route, never through the page.
+ *   Either way the browser writes it into the install links, the command and the configurations.
+ * - The Claude Desktop extension is downloaded from its own admin route and asks for the token when installed.
  *
- * @phpstan-type Snippet array{id: string, client: string, transport: string, file: string, json: string, hint: string}
+ * @phpstan-import-type Snippet from ClientSnippetsInterface
  */
 class ServerOverview implements ArgumentInterface
 {
-    public const ENDPOINT_PATH = 'rest/all/V1/mcp';
     private const CONFIG_RESOURCE = 'Hryvinskyi_McpServer::config';
     private const CONFIG_SECTION = 'hryvinskyi_mcp_server';
-    private const SERVE_COMMAND = 'hryvinskyi:mcp:serve';
-    private const TOKEN_PLACEHOLDER = '<integration-token>';
-    private const LOGIN_PLACEHOLDER = '--admin-user=<login>';
-    private const JSON_FLAGS = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        | JSON_THROW_ON_ERROR;
 
     /**
      * @param ConfigInterface $config
      * @param AbilityRows $rows
      * @param ProtocolVersions $protocolVersions
-     * @param StoreManagerInterface $storeManager
-     * @param DirectoryList $directoryList
+     * @param ClientConnectionInterface $connection
+     * @param ClientSnippetsInterface $snippets
      * @param BackendUrl $backendUrl
      * @param AuthorizationInterface $authorization
      * @param JsonHexTag $json
@@ -63,8 +55,8 @@ class ServerOverview implements ArgumentInterface
         private readonly ConfigInterface $config,
         private readonly AbilityRows $rows,
         private readonly ProtocolVersions $protocolVersions,
-        private readonly StoreManagerInterface $storeManager,
-        private readonly DirectoryList $directoryList,
+        private readonly ClientConnectionInterface $connection,
+        private readonly ClientSnippetsInterface $snippets,
         private readonly BackendUrl $backendUrl,
         private readonly AuthorizationInterface $authorization,
         private readonly JsonHexTag $json,
@@ -74,10 +66,14 @@ class ServerOverview implements ArgumentInterface
     }
 
     /**
-     * The x-magento-init JSON that mounts the card's copy buttons on the element the selector finds
+     * The x-magento-init JSON that mounts the connection card on the element the selector finds
      *
-     * It carries the wording a button reads once it copied; tags are hex-escaped, so the JSON cannot end its script
-     * element.
+     * The script receives the wording a copy button reads once it copied, and the client connection: the server's
+     * name, its endpoint and the token placeholder the page's configurations carry. From these it builds the install
+     * links and the Claude Code command in the browser, with the token the token field holds. No token is in this
+     * JSON, nor anywhere else PHP prints into the page. A token pasted by hand never reaches the store; a picked one
+     * comes from the store through the integration token route, never through the page. Tags are hex-escaped, so the
+     * JSON cannot end its script element.
      *
      * @param string $selector
      * @return string
@@ -85,8 +81,25 @@ class ServerOverview implements ArgumentInterface
     public function mountConfig(string $selector): string
     {
         return (string) $this->json->serialize([
-            $selector => ['Hryvinskyi_McpServer/js/connection-card' => ['copied' => (string) __('Copied')]],
+            $selector => ['Hryvinskyi_McpServer/js/connection-card' => [
+                'copied' => (string) __('Copied'),
+                'connection' => [
+                    'name' => $this->connection->serverName(),
+                    'url' => $this->connection->endpointUrl(),
+                    'placeholder' => ClientSnippetsInterface::TOKEN_PLACEHOLDER,
+                ],
+            ]],
         ]);
+    }
+
+    /**
+     * Where the admin downloads the Claude Desktop extension, which asks for the access token itself
+     *
+     * @return string
+     */
+    public function extensionUrl(): string
+    {
+        return $this->backendUrl->getUrl('hryvinskyi_mcp/server/extension');
     }
 
     /**
@@ -130,10 +143,7 @@ class ServerOverview implements ArgumentInterface
      */
     public function endpointUrl(): string
     {
-        $store = $this->storeManager->getDefaultStoreView();
-        $base = $store instanceof Store ? (string) $store->getBaseUrl(UrlInterface::URL_TYPE_WEB, true) : '';
-
-        return rtrim($base, '/') . '/' . self::ENDPOINT_PATH;
+        return $this->connection->endpointUrl();
     }
 
     /**
@@ -143,7 +153,8 @@ class ServerOverview implements ArgumentInterface
      */
     public function stdioCommand(): string
     {
-        return 'bin/magento ' . self::SERVE_COMMAND . ' ' . self::LOGIN_PLACEHOLDER;
+        return 'bin/magento ' . ClientSnippetsInterface::SERVE_COMMAND . ' '
+            . ClientSnippetsInterface::LOGIN_PLACEHOLDER;
     }
 
     /**
@@ -173,10 +184,7 @@ class ServerOverview implements ArgumentInterface
      */
     public function exposedCount(): int
     {
-        return count(array_filter(
-            $this->rows->all(),
-            static fn (array $row): bool => Exposure::from($row['exposure'])->allowsCall()
-        ));
+        return $this->rows->exposedCount();
     }
 
     /**
@@ -223,61 +231,6 @@ class ServerOverview implements ArgumentInterface
      */
     public function snippets(): array
     {
-        $endpoint = $this->endpointUrl();
-        $stdio = ['mcpServers' => ['magento' => [
-            'command' => 'php',
-            'args' => [
-                $this->directoryList->getRoot() . '/bin/magento',
-                self::SERVE_COMMAND,
-                self::LOGIN_PLACEHOLDER,
-            ],
-        ]]];
-        $httpHint = (string) __(
-            'Replace %1 with the access token of an integration (System › Extensions › Integrations). Restart the '
-            . 'client after saving.',
-            self::TOKEN_PLACEHOLDER
-        );
-        $stdioHint = (string) __(
-            'The client starts the command on the machine Magento runs on, as the admin user you name instead of '
-            . '<login>; the role of that user decides what the client may do.'
-        );
-        $claudeFile = (string) __('claude_desktop_config.json (Claude › Settings › Developer › Edit Config)');
-        $cursorFile = (string) __('.cursor/mcp.json in a project, or ~/.cursor/mcp.json for every project');
-
-        return [
-            $this->snippet('claude', 'http', $claudeFile, $httpHint, ['mcpServers' => ['magento' => [
-                'command' => 'npx',
-                'args' => ['-y', 'mcp-remote', $endpoint, '--header', 'Authorization:${MAGENTO_MCP_AUTH}'],
-                'env' => ['MAGENTO_MCP_AUTH' => 'Bearer ' . self::TOKEN_PLACEHOLDER],
-            ]]]),
-            $this->snippet('claude', 'stdio', $claudeFile, $stdioHint, $stdio),
-            $this->snippet('cursor', 'http', $cursorFile, $httpHint, ['mcpServers' => ['magento' => [
-                'url' => $endpoint,
-                'headers' => ['Authorization' => 'Bearer ' . self::TOKEN_PLACEHOLDER],
-            ]]]),
-            $this->snippet('cursor', 'stdio', $cursorFile, $stdioHint, $stdio),
-        ];
-    }
-
-    /**
-     * One client configuration
-     *
-     * @param string $client
-     * @param string $transport
-     * @param string $file
-     * @param string $hint
-     * @param array<string,mixed> $configuration
-     * @return Snippet
-     */
-    private function snippet(string $client, string $transport, string $file, string $hint, array $configuration): array
-    {
-        return [
-            'id' => $client . '-' . $transport,
-            'client' => $client,
-            'transport' => $transport,
-            'file' => $file,
-            'json' => json_encode($configuration, self::JSON_FLAGS),
-            'hint' => $hint,
-        ];
+        return $this->snippets->all();
     }
 }

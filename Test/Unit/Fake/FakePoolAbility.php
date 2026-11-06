@@ -45,7 +45,7 @@ class FakePoolAbility implements PoolAbilityInterface
      */
     public function __construct(
         private readonly string $name,
-        private readonly array $aclResources = ['Magento_Catalog::products'],
+        private readonly array $aclResources = ['Magento_Backend::stores'],
         private readonly AbilityAccess $access = AbilityAccess::Read,
         private readonly array $inputSchema = ['type' => 'object'],
         private readonly string $category = 'Acme_Shipping',

@@ -108,7 +108,7 @@ class CleanExpiredSessionsTest extends TestCase
             'session_id' => str_repeat('a', 32),
             'user_type' => UserContextInterface::USER_TYPE_ADMIN,
             'user_id' => 1,
-            'ability' => 'catalog.product_repository.save',
+            'ability' => 'hryvinskyi_mcp_test.fixture.save',
             'arguments_hash' => str_repeat('b', 64),
             'expires_at' => gmdate('Y-m-d H:i:s', $expiresAt),
         ]);

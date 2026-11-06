@@ -41,12 +41,12 @@ class ArgumentsFingerprintTest extends TestCase
     {
         self::assertSame(
             $this->fingerprint->of([
-                'product' => ['sku' => 'A1', 'extension_attributes' => ['stock' => ['qty' => 2, 'in_stock' => true]]],
+                'store' => ['code' => 'A1', 'extension_attributes' => ['locale' => ['rank' => 2, 'active' => true]]],
                 'saveOptions' => false,
             ]),
             $this->fingerprint->of([
                 'saveOptions' => false,
-                'product' => ['extension_attributes' => ['stock' => ['in_stock' => true, 'qty' => 2]], 'sku' => 'A1'],
+                'store' => ['extension_attributes' => ['locale' => ['active' => true, 'rank' => 2]], 'code' => 'A1'],
             ])
         );
     }
@@ -57,10 +57,10 @@ class ArgumentsFingerprintTest extends TestCase
     public static function differentArguments(): array
     {
         return [
-            'another value' => [['sku' => 'A1'], ['sku' => 'A2']],
-            'another type' => [['qty' => 1], ['qty' => '1']],
-            'an integer and a float' => [['qty' => 1], ['qty' => 1.0]],
-            'an extra key' => [['sku' => 'A1'], ['sku' => 'A1', 'qty' => 1]],
+            'another value' => [['code' => 'A1'], ['code' => 'A2']],
+            'another type' => [['sort_order' => 1], ['sort_order' => '1']],
+            'an integer and a float' => [['sort_order' => 1], ['sort_order' => 1.0]],
+            'an extra key' => [['code' => 'A1'], ['code' => 'A1', 'sort_order' => 1]],
             'a list in another order' => [['ids' => [1, 2]], ['ids' => [2, 1]]],
             'a nested value' => [['p' => ['a' => ['b' => 1]]], ['p' => ['a' => ['b' => 2]]]],
             'no arguments and one' => [[], ['a' => null]],

@@ -417,4 +417,38 @@
             <argument name="confirmed" xsi:type="boolean">false</argument>
         </arguments>
     </virtualType>
+
+    <!-- What every client is configured with: the server's name and the endpoint URL -->
+    <preference for="Hryvinskyi\McpServer\Model\Admin\ClientConnectionInterface" type="Hryvinskyi\McpServer\Model\Admin\ClientConnection"/>
+
+    <!-- The configurations the admin pastes into a client, per client and transport -->
+    <preference for="Hryvinskyi\McpServer\Model\Admin\ClientSnippetsInterface" type="Hryvinskyi\McpServer\Model\Admin\ClientSnippets"/>
+
+    <!-- The JSON answer of the admin routes the MCP Server page's scripts call: no cache keeps it, no browser sniffs it -->
+    <preference for="Hryvinskyi\McpServer\Model\Admin\Http\NoStoreJsonInterface" type="Hryvinskyi\McpServer\Model\Admin\Http\NoStoreJson"/>
+
+    <!-- The store's integrations with their readiness for MCP, and the token of a ready one. The listing never
+         carries a token; handing one out judges the integration's readiness again -->
+    <preference for="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectoryInterface" type="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectory"/>
+    <preference for="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationTokensInterface" type="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationTokens"/>
+    <preference for="Hryvinskyi\McpServer\Model\Admin\Integration\AccessTokenReaderInterface" type="Hryvinskyi\McpServer\Model\Admin\Integration\AccessTokenReader"/>
+
+    <!-- The Claude Desktop extension: its manifest and the bridge under extension/server, packed in memory -->
+    <preference for="Hryvinskyi\McpServer\Model\Extension\ArchiveWriterInterface" type="Hryvinskyi\McpServer\Model\Extension\ZipArchiveWriter"/>
+    <preference for="Hryvinskyi\McpServer\Model\Extension\ExtensionManifestInterface" type="Hryvinskyi\McpServer\Model\Extension\ExtensionManifest"/>
+    <preference for="Hryvinskyi\McpServer\Model\Extension\ExtensionPackageInterface" type="Hryvinskyi\McpServer\Model\Extension\ClaudeDesktopExtension"/>
+    <type name="Hryvinskyi\McpServer\Model\Extension\ClaudeDesktopExtension">
+        <arguments>
+            <argument name="driver" xsi:type="object">Magento\Framework\Filesystem\Driver\File</argument>
+            <!-- Path inside the extension => path inside the module. Every file the bridge loads must be listed,
+                 or the installed extension fails to start for want of it -->
+            <argument name="files" xsi:type="array">
+                <item name="server/index.js" xsi:type="string">extension/server/index.js</item>
+                <item name="server/bridge.js" xsi:type="string">extension/server/bridge.js</item>
+                <item name="server/http-transport.js" xsi:type="string">extension/server/http-transport.js</item>
+                <item name="server/line-reader.js" xsi:type="string">extension/server/line-reader.js</item>
+                <item name="server/messages.js" xsi:type="string">extension/server/messages.js</item>
+            </argument>
+        </arguments>
+    </type>
 </config>

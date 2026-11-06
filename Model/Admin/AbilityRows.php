@@ -11,6 +11,7 @@ namespace Hryvinskyi\McpServer\Model\Admin;
 
 use Hryvinskyi\McpServer\Api\AbilityCatalogInterface;
 use Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface;
+use Hryvinskyi\McpServer\Api\Data\Exposure;
 use Hryvinskyi\McpServer\Api\ExposurePolicyInterface;
 use Hryvinskyi\McpServer\Api\PersonalDataPolicyInterface;
 use Hryvinskyi\McpServer\Model\Section\AbilitySections;
@@ -21,7 +22,8 @@ use Magento\Framework\ObjectManager\ResetAfterRequestInterface;
  *
  * A row also tells whether the merchant put the ability on the deny-list or asked for confirmation here, apart from
  * what the module's own rules decide, the sections it belongs to (`section` is the first of them) and whether the
- * personal data in its results is `hidden` or `shown`. The rows are read once per request.
+ * personal data in its results is `hidden` or `shown`. The rows are memoised for the request; `recount()` reads them
+ * again.
  *
  * @phpstan-type AbilityRow array{
  *     name: string,
@@ -107,6 +109,34 @@ class AbilityRows implements ResetAfterRequestInterface
         }
 
         return $this->rows = $rows;
+    }
+
+    /**
+     * The rows read again from the catalog, for a caller that changed what they depend on earlier in the request
+     * (a section switched off or on)
+     *
+     * @return list<AbilityRow>
+     */
+    public function recount(): array
+    {
+        $this->rows = null;
+
+        return $this->all();
+    }
+
+    /**
+     * How many abilities a client may call, some after confirming, counted from the rows of this request
+     *
+     * A caller that changed what the rows depend on calls `recount()` first, or the count is the one from before.
+     *
+     * @return int
+     */
+    public function exposedCount(): int
+    {
+        return count(array_filter(
+            $this->all(),
+            static fn (array $row): bool => Exposure::from($row['exposure'])->allowsCall()
+        ));
     }
 
     /**

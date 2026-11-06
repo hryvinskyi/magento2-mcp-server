@@ -48,7 +48,7 @@ class FakeWebapiConfig implements ConfigInterface
     public static function route(
         string $class,
         string $method,
-        array $resources = ['Magento_Catalog::products'],
+        array $resources = ['Magento_Backend::stores'],
         array $forced = [],
         ?int $inputArraySizeLimit = null,
         bool $secure = false

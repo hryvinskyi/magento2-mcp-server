@@ -365,7 +365,7 @@ class ProtocolKit
     }
 
     /**
-     * A catalog over one fake source holding a product reader, a product writer and a country reader
+     * An ability catalog over one fake source holding a store view reader, a store view writer and a country reader
      *
      * @param bool $allowed What the source answers for the caller's ACL
      * @return AbilityCatalog
@@ -377,23 +377,23 @@ class ProtocolKit
             $this->logger,
             ['webapi' => new FakeAbilitySource('webapi', [
                 new Ability(
-                    'catalog.product_repository.get_list',
-                    'Product list',
-                    'Magento_Catalog',
+                    'store.store_repository.get_list',
+                    'Store view list',
+                    'Magento_Store',
                     'webapi',
-                    'GET /V1/products',
+                    'GET /V1/store/storeViews',
                     AbilityAccess::Read,
-                    ['Magento_Catalog::products'],
-                    'Lists products matching the search criteria.'
+                    ['Magento_Backend::stores'],
+                    'Lists the store views.'
                 ),
                 new Ability(
-                    'catalog.product_repository.save',
-                    'Save a product',
-                    'Magento_Catalog',
+                    'store.store_repository.save',
+                    'Save a store view',
+                    'Magento_Store',
                     'webapi',
-                    'POST /V1/products',
+                    'POST /V1/store/storeViews',
                     AbilityAccess::Write,
-                    ['Magento_Catalog::products', 'Magento_Catalog::edit']
+                    ['Magento_Backend::stores_settings', 'Magento_Config::config']
                 ),
                 new Ability(
                     'directory.country_information_acquirer.get_countries_info',

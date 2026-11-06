@@ -52,7 +52,8 @@ class PoolAbilitySourceTest extends TestCase
     use SwitchesGraphQlSourceOff;
 
     private const QUOTE = 'acme_shipping.rate_service.quote';
-    private const GET_LIST = 'catalog.product_repository.get_list';
+    private const STORE_VIEWS = 'store.store_repository.get_list';
+    private const WEBSITES = 'store.website_repository.get_list';
 
     /**
      * Shared instances that hold the pool's items or a user context, built again for each test
@@ -84,10 +85,10 @@ class PoolAbilitySourceTest extends TestCase
 
     public function testARegisteredAbilityIsListedByTheCatalogAndRunsThroughTheInvoker(): void
     {
-        $this->actAs(AdminRoles::grant(['Magento_Sales::sales'], 990101));
+        $this->actAs(AdminRoles::grant(['Hryvinskyi_McpServer::access'], 990101));
         $quote = new FakePoolAbility(
             self::QUOTE,
-            ['Magento_Sales::sales'],
+            ['Hryvinskyi_McpServer::access'],
             inputSchema: ['type' => 'object', 'properties' => []]
         );
         $this->register($quote);
@@ -98,7 +99,7 @@ class PoolAbilitySourceTest extends TestCase
         self::assertSame(PoolAbilitySource::CODE, $ability->getSource());
         self::assertSame('pool:' . self::QUOTE, $ability->getSourceReference());
         self::assertSame(AbilityAccess::Read, $ability->getAccess());
-        self::assertSame(['Magento_Sales::sales'], $ability->getAclResources());
+        self::assertSame(['Hryvinskyi_McpServer::access'], $ability->getAclResources());
         self::assertSame(
             '{"type":"object","properties":{}}',
             json_encode($this->catalog()->schemaOf($ability), JSON_THROW_ON_ERROR)
@@ -110,27 +111,27 @@ class PoolAbilitySourceTest extends TestCase
 
     public function testARegisteredAbilityWinsTheNameOfAWebApiAbility(): void
     {
-        $this->actAs(AdminRoles::grant(['Magento_Catalog::products'], 990102));
-        $registered = new FakePoolAbility(self::GET_LIST, ['Magento_Catalog::products']);
+        $this->actAs(AdminRoles::grant(['Magento_Backend::store'], 990102));
+        $registered = new FakePoolAbility(self::STORE_VIEWS, ['Magento_Backend::store']);
         $this->register($registered);
 
-        $ability = $this->catalog()->get(self::GET_LIST);
-        $result = $this->invoker()->invoke($this->invocation(self::GET_LIST)->withArguments(['pageSize' => 1]));
+        $ability = $this->catalog()->get(self::STORE_VIEWS);
+        $result = $this->invoker()->invoke($this->invocation(self::STORE_VIEWS)->withArguments(['pageSize' => 1]));
 
         self::assertSame(PoolAbilitySource::CODE, $ability->getSource());
         self::assertSame(InvocationOutcome::Succeeded, $result->getOutcome());
         self::assertSame([['pageSize' => 1]], $registered->calls);
         self::assertSame(
             WebapiAbilitySource::CODE,
-            $this->catalog()->get('catalog.product_repository.save')->getSource(),
+            $this->catalog()->get(self::WEBSITES)->getSource(),
             'The Web API still offers every name the pool does not take.'
         );
     }
 
     public function testACallerWithoutTheAbilityResourceIsDeniedAndTheItemNeverRuns(): void
     {
-        $this->actAs(AdminRoles::grant(['Magento_Catalog::products'], 990103));
-        $quote = new FakePoolAbility(self::QUOTE, ['Magento_Sales::sales']);
+        $this->actAs(AdminRoles::grant(['Magento_Backend::store'], 990103));
+        $quote = new FakePoolAbility(self::QUOTE, ['Hryvinskyi_McpServer::access']);
         $this->register($quote);
 
         $result = $this->invoker()->invoke($this->invocation(self::QUOTE));

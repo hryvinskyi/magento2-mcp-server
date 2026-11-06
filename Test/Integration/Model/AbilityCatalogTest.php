@@ -52,14 +52,14 @@ class AbilityCatalogTest extends TestCase
 
     public function testACatalogBuiltWithASourceFindsSearchesAndDelegates(): void
     {
-        $list = $this->ability('catalog.product_repository.get_list', 'Retrieve products', AbilityAccess::Read);
-        $save = $this->ability('catalog.product_repository.save', 'Save a product', AbilityAccess::Write);
+        $list = $this->ability('store.store_repository.get_list', 'Retrieve store views', AbilityAccess::Read);
+        $save = $this->ability('store.store_repository.save', 'Save a store view', AbilityAccess::Write);
         $source = new FakeAbilitySource('test', [$save, $list], false);
         $catalog = Bootstrap::getObjectManager()->create(AbilityCatalog::class, ['sources' => ['test' => $source]]);
         self::assertInstanceOf(AbilityCatalog::class, $catalog);
 
-        self::assertSame($list, $catalog->get('catalog.product_repository.get_list'));
-        $page = $catalog->search('product', 'Magento_Catalog', null, 1, 0);
+        self::assertSame($list, $catalog->get('store.store_repository.get_list'));
+        $page = $catalog->search('store', 'Magento_Store', null, 1, 0);
         self::assertInstanceOf(AbilityPage::class, $page);
         self::assertSame(2, $page->getTotal());
         self::assertSame([$list], $page->getItems());
@@ -84,11 +84,11 @@ class AbilityCatalogTest extends TestCase
         return $factory->create([
             'name' => $name,
             'title' => $title,
-            'category' => 'Magento_Catalog',
+            'category' => 'Magento_Store',
             'source' => 'test',
-            'sourceReference' => 'GET /V1/products',
+            'sourceReference' => 'GET /V1/store/storeViews',
             'access' => $access,
-            'aclResources' => ['Magento_Catalog::products'],
+            'aclResources' => ['Magento_Backend::store'],
         ]);
     }
 }

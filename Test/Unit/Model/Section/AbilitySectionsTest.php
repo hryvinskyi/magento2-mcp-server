@@ -28,9 +28,9 @@ class AbilitySectionsTest extends TestCase
     {
         return [
             'a resource deep in an area belongs to the area' => [
-                ['Magento_Catalog::edit'],
-                ['Magento_Catalog::catalog'],
-                ['Catalog'],
+                ['Magento_User::locks'],
+                ['Magento_Backend::system'],
+                ['System'],
             ],
             'the area node itself' => [['Magento_Sales::sales'], ['Magento_Sales::sales'], ['Sales']],
             'a split area gives its children sections of their own' => [
@@ -39,9 +39,9 @@ class AbilitySectionsTest extends TestCase
                 ['Stores › Inventory', 'Stores › Settings'],
             ],
             'two resources of one area make one section' => [
-                ['Magento_Catalog::products', 'Magento_Catalog::edit'],
-                ['Magento_Catalog::catalog'],
-                ['Catalog'],
+                ['Magento_User::acl_users', 'Magento_User::locks'],
+                ['Magento_Backend::system'],
+                ['System'],
             ],
             'a resource outside the tree that has a section of its own' => [
                 ['anonymous'],

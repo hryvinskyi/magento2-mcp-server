@@ -54,8 +54,8 @@ use PHPUnit\Framework\TestCase;
  */
 class AbilityInvokerTest extends TestCase
 {
-    private const READ = 'catalog.product_repository.get_list';
-    private const WRITE = 'catalog.product_repository.save';
+    private const READ = 'store.store_repository.get_list';
+    private const WRITE = 'store.store_repository.save';
     private const MASKED = 'Internal Error. Details are available in Magento log file. Report ID: webapi-1';
 
     /**
@@ -109,10 +109,10 @@ class AbilityInvokerTest extends TestCase
         $invoker = $this->invoker(Exposure::Exposed, true);
 
         try {
-            $invoker->invoke($this->invocation('catalog.nothing.here'));
+            $invoker->invoke($this->invocation('store.nothing.here'));
             self::fail('An unknown ability must throw.');
         } catch (NoSuchEntityException $exception) {
-            self::assertStringContainsString('catalog.nothing.here', $exception->getMessage());
+            self::assertStringContainsString('store.nothing.here', $exception->getMessage());
         }
 
         self::assertSame([], $this->listener->events);
@@ -187,18 +187,18 @@ class AbilityInvokerTest extends TestCase
             'anonymous ability' => [
                 Exposure::Denied,
                 InvocationResultInterface::DENIAL_ANONYMOUS_ABILITY,
-                'The ability "catalog.product_repository.save" is open to anonymous callers, and this store does not '
+                'The ability "store.store_repository.save" is open to anonymous callers, and this store does not '
                 . 'expose such abilities.',
             ],
             'a reason of another module' => [
                 Exposure::Denied,
                 'quiet_hours',
-                'The ability "catalog.product_repository.save" is not exposed to MCP clients (quiet_hours).',
+                'The ability "store.store_repository.save" is not exposed to MCP clients (quiet_hours).',
             ],
             'a read-only block with a reason of its own' => [
                 Exposure::ReadOnlyBlocked,
                 'maintenance_window',
-                'The ability "catalog.product_repository.save" is not exposed to MCP clients (maintenance_window).',
+                'The ability "store.store_repository.save" is not exposed to MCP clients (maintenance_window).',
             ],
         ];
     }
@@ -305,7 +305,7 @@ class AbilityInvokerTest extends TestCase
 
         self::assertSame(InvocationResultInterface::DENIAL_ARGUMENT_GUARD, $result->getDenialReason());
         self::assertSame(
-            'The arguments of this call of the ability "catalog.product_repository.save" are refused.',
+            'The arguments of this call of the ability "store.store_repository.save" are refused.',
             $result->getMessage()
         );
     }
@@ -327,8 +327,8 @@ class AbilityInvokerTest extends TestCase
         $result = $this->invoker(Exposure::Exposed, false)->invoke($this->invocation(self::WRITE));
 
         self::assertSame(
-            'The ability "catalog.product_repository.save" needs ACL resources your role lacks: '
-            . 'Magento_Catalog::products, Magento_Catalog::edit.',
+            'The ability "store.store_repository.save" needs ACL resources your role lacks: '
+            . 'Magento_Backend::stores, Magento_Backend::stores_settings.',
             $result->getMessage()
         );
     }
@@ -340,7 +340,7 @@ class AbilityInvokerTest extends TestCase
         self::assertSame(InvocationOutcome::NeedsConfirmation, $result->getOutcome());
         self::assertSame('', $result->getDenialReason());
         self::assertSame(
-            'The ability "catalog.product_repository.save" runs only when the call is confirmed.',
+            'The ability "store.store_repository.save" runs only when the call is confirmed.',
             $result->getMessage()
         );
         self::assertSame([], $this->source()->invocations);
@@ -384,7 +384,7 @@ class AbilityInvokerTest extends TestCase
         self::assertSame(self::MASKED, $result->getMessage());
         self::assertSame(
             [
-                'MCP ability "catalog.product_repository.get_list" failed: '
+                'MCP ability "store.store_repository.get_list" failed: '
                 . 'SQLSTATE[42S02]: table secret_table is missing',
             ],
             $this->logger->messages('error')
@@ -568,21 +568,21 @@ class AbilityInvokerTest extends TestCase
             [
                 new Ability(
                     self::READ,
-                    'Product list',
-                    'Magento_Catalog',
+                    'Store view list',
+                    'Magento_Store',
                     'webapi',
-                    'GET /V1/products',
+                    'GET /V1/store/storeViews',
                     AbilityAccess::Read,
-                    ['Magento_Catalog::products']
+                    ['Magento_Backend::stores']
                 ),
                 new Ability(
                     self::WRITE,
-                    'Save a product',
-                    'Magento_Catalog',
+                    'Save a store view',
+                    'Magento_Store',
                     'webapi',
-                    'POST /V1/products',
+                    'POST /V1/store/storeViews',
                     AbilityAccess::Write,
-                    ['Magento_Catalog::products', 'Magento_Catalog::edit']
+                    ['Magento_Backend::stores', 'Magento_Backend::stores_settings']
                 ),
             ],
             $allowed,

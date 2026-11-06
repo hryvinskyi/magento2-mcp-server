@@ -5,197 +5,113 @@
  */
 
 /*
- * Stores › MCP Server: the connection card above the ability catalog, and the catalog's status and ACL cells.
- * The client and transport switches are radio buttons: the checked pair shows its configuration, without a script.
+ * Stores › MCP Server: what the admin UI kit does not draw. The kit's stylesheet is linked before this one, so a rule
+ * here overrides a kit rule of the same weight by order. Every colour is a kit token (`--hui-*`).
+ *
+ * The overview sits under the kit root `.hui` its template prints. The ability catalog is a Magento UI listing that
+ * the layout wraps with the tokens-only root `.hui-tokens`: the kit's base rules do not reach it, and the listing's
+ * own controls (toolbar, filters, pager, table) keep the admin theme's look. Only the cells this module's columns
+ * print are styled, from the tokens they inherit, and every catalog selector stays under the page's body class.
  */
 
-.mcp-server__message a {
-    margin-left: 0.6rem;
+/* ---------------------------------------------------------------------------------------------------------------
+ * Overview
+ * --------------------------------------------------------------------------------------------------------------- */
+
+/*
+ * The overview and the catalog are siblings in the page's content, and other modules may place blocks between them:
+ * the overview keeps its distance from whatever follows it.
+ */
+.mcp-overview {
+    margin-bottom: 16px;
 }
 
-.mcp-card {
-    margin: 0 0 2.4rem;
-    border: 1px solid #e3e3e3;
-    background: #fff;
-}
-
-.mcp-card__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.2rem;
-    padding: 1.2rem 1.6rem;
-    border-bottom: 1px solid #e3e3e3;
-}
-
-.mcp-card__title {
+/* The admin theme gives paragraphs a bottom margin; inside the kit's layouts the gaps do the spacing. */
+.mcp-overview p {
     margin: 0;
-    font-size: 1.8rem;
-    font-weight: 600;
 }
 
-.mcp-card__body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 2.4rem;
-    padding: 1.6rem;
+/* Once the script gave the Cursor or VS Code link an address, the line that says they are coming goes away. */
+.hui-actions:has(a[data-install][href]) ~ .mcp-install-waiting {
+    display: none;
 }
 
-@media (max-width: 1100px) {
-    .mcp-card__body {
-        grid-template-columns: minmax(0, 1fr);
-    }
+/* What the last switch of a section said, between the sections card's head and its rows. */
+.mcp-sections__status {
+    margin: 12px 22px 0;
 }
 
-.mcp-state {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-weight: 600;
-}
-
-.mcp-state__dot,
-.mcp-status__dot {
-    display: inline-block;
-    width: 0.8rem;
-    height: 0.8rem;
-    border-radius: 50%;
-    background: #8c8c8c;
-}
-
-.mcp-state--on .mcp-state__dot {
-    background: #3c9d5a;
-}
-
-.mcp-state--read-only .mcp-state__dot {
-    background: #e6a117;
-}
-
-.mcp-field {
-    margin: 0 0 1.6rem;
-}
-
-.mcp-field__label {
-    margin: 0 0 0.6rem;
-    font-weight: 600;
-}
-
-.mcp-copy {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-}
-
-.mcp-copy code {
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 0.6rem 0.8rem;
-    overflow-x: auto;
-    border: 1px solid #e3e3e3;
-    background: #f8f8f8;
-    white-space: nowrap;
-}
-
-.mcp-auth {
-    display: grid;
-    gap: 0.8rem;
-}
-
-.mcp-auth__option {
-    padding: 0.8rem 1rem;
-    border: 1px solid #e3e3e3;
-}
-
-.mcp-auth__option p {
-    margin: 0.4rem 0 0;
-}
-
-.mcp-auth__title {
-    font-weight: 600;
-}
-
-.mcp-auth__badge {
-    color: #3c9d5a;
-    font-weight: 400;
-}
-
-.mcp-facts {
+/* The catalog's title with its line on the same baseline, wrapping under it when the width runs out. */
+.mcp-catalog-heading {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.6rem 2.4rem;
+    align-items: baseline;
+    gap: 4px 12px;
+}
+
+/* The details card: a boxed disclosure drawn with the card's radius, shadow and padding. */
+.mcp-details {
+    border-radius: var(--hui-radius-card);
+    box-shadow: var(--hui-shadow-card);
+}
+
+.mcp-details > .hui-disclosure__summary {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 16px 22px;
+    border-radius: var(--hui-radius-card);
+}
+
+.mcp-details[open] > .hui-disclosure__summary {
+    border-radius: var(--hui-radius-card) var(--hui-radius-card) 0 0;
+}
+
+.mcp-details > .hui-disclosure__body {
+    gap: 20px;
+    padding: 18px 22px 22px;
+}
+
+/*
+ * The client and transport switches are radio buttons, visually hidden, ahead of their labels: the checked pair
+ * draws its label as selected and shows its configuration, without a script.
+ */
+.mcp-segmented {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--hui-canvas);
+    border: 1px solid var(--hui-line);
+    border-radius: var(--hui-radius-box);
+}
+
+.mcp-segmented__option {
     margin: 0;
-}
-
-.mcp-facts div {
-    display: flex;
-    gap: 0.6rem;
-}
-
-.mcp-facts dt {
-    color: #6f6f6f;
-}
-
-.mcp-facts dd {
-    margin: 0;
+    padding: 5px 12px;
+    font-size: 13px;
     font-weight: 600;
-}
-
-/* The switches themselves stay out of sight; their labels are the tabs and options */
-.mcp-switch {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.mcp-tabs {
-    display: flex;
-    border-bottom: 1px solid #adadad;
-}
-
-.mcp-tabs__tab {
-    margin: 0 0.4rem -1px 0;
-    padding: 0.6rem 1.2rem;
-    border: 1px solid #adadad;
-    background: #f8f8f8;
+    color: var(--hui-muted);
+    border-radius: var(--hui-radius-control);
     cursor: pointer;
 }
 
-.mcp-transports {
-    display: flex;
-    gap: 1.6rem;
-    margin: 1rem 0;
+.mcp-segmented__option:hover {
+    color: var(--hui-ink);
 }
 
-.mcp-transports__option {
-    cursor: pointer;
+#mcp-client-claude:checked ~ .mcp-switches .mcp-segmented__option--client-claude,
+#mcp-client-cursor:checked ~ .mcp-switches .mcp-segmented__option--client-cursor,
+#mcp-transport-http:checked ~ .mcp-switches .mcp-segmented__option--transport-http,
+#mcp-transport-stdio:checked ~ .mcp-switches .mcp-segmented__option--transport-stdio {
+    background: var(--hui-surface);
+    color: var(--hui-ink);
+    box-shadow: var(--hui-shadow-knob);
 }
 
-.mcp-transports__option::before {
-    content: '';
-    display: inline-block;
-    width: 1.2rem;
-    height: 1.2rem;
-    margin-right: 0.6rem;
-    border: 1px solid #adadad;
-    border-radius: 50%;
-    vertical-align: -0.2rem;
-}
-
-#mcp-client-claude:checked ~ .mcp-tabs .mcp-tabs__tab--claude,
-#mcp-client-cursor:checked ~ .mcp-tabs .mcp-tabs__tab--cursor {
-    border-bottom-color: #fff;
-    background: #fff;
-    font-weight: 600;
-}
-
-#mcp-transport-http:checked ~ .mcp-transports .mcp-transports__option--http::before,
-#mcp-transport-stdio:checked ~ .mcp-transports .mcp-transports__option--stdio::before {
-    border: 0.4rem solid #007bdb;
-}
-
-.mcp-switch:focus-visible ~ .mcp-tabs,
-.mcp-switch:focus-visible ~ .mcp-transports {
-    outline: 2px solid #007bdb;
+#mcp-client-claude:focus-visible ~ .mcp-switches .mcp-segmented__option--client-claude,
+#mcp-client-cursor:focus-visible ~ .mcp-switches .mcp-segmented__option--client-cursor,
+#mcp-transport-http:focus-visible ~ .mcp-switches .mcp-segmented__option--transport-http,
+#mcp-transport-stdio:focus-visible ~ .mcp-switches .mcp-segmented__option--transport-stdio {
+    outline: 2px solid var(--hui-focus);
     outline-offset: 2px;
 }
 
@@ -207,109 +123,73 @@
 #mcp-client-claude:checked ~ #mcp-transport-stdio:checked ~ .mcp-snippets [data-snippet="claude-stdio"],
 #mcp-client-cursor:checked ~ #mcp-transport-http:checked ~ .mcp-snippets [data-snippet="cursor-http"],
 #mcp-client-cursor:checked ~ #mcp-transport-stdio:checked ~ .mcp-snippets [data-snippet="cursor-stdio"] {
-    display: block;
-}
-
-.mcp-snippet__head {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.8rem;
-    padding: 0.6rem 0.8rem;
-    border: 1px solid #e3e3e3;
-    border-bottom: 0;
-    background: #f8f8f8;
 }
 
-.mcp-snippet__file {
-    overflow-wrap: anywhere;
-    color: #6f6f6f;
-}
+/* ---------------------------------------------------------------------------------------------------------------
+ * The ability catalog
+ * --------------------------------------------------------------------------------------------------------------- */
 
-.mcp-snippet__code {
-    margin: 0;
-    padding: 1rem;
-    overflow-x: auto;
-    border: 1px solid #e3e3e3;
-    background: #fff;
-    font-size: 1.2rem;
-}
-
-.mcp-snippet__hint {
-    margin: 0.6rem 0 0;
-    color: #6f6f6f;
-}
-
-.mcp-catalog__heading {
-    display: flex;
-    align-items: baseline;
-    gap: 1.2rem;
-    margin: 0 0 1rem;
-}
-
-.mcp-catalog__lead {
-    color: #6f6f6f;
-}
-
-/* Catalog cells */
-.mcp-status {
+/* The cells the listing's columns print: the exposure decision as a dot and a word, and the ACL resources. */
+.hryvinskyi_mcp-server-index .mcp-status {
     display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 5px;
+    padding: 2px 8px;
+    font-size: 12px;
     font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    background: var(--hui-neutral);
+    color: var(--hui-muted);
+    border-radius: var(--hui-radius-pill);
 }
 
-.mcp-status--exposed .mcp-status__dot {
-    background: #3c9d5a;
+.hryvinskyi_mcp-server-index .mcp-status__dot {
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    border-radius: 50%;
 }
 
-.mcp-status--confirm .mcp-status__dot {
-    background: #007bdb;
+.hryvinskyi_mcp-server-index .mcp-status--exposed {
+    background: var(--hui-ok-bg);
+    color: var(--hui-ok-ink);
 }
 
-.mcp-status--blocked .mcp-status__dot {
-    background: #e6a117;
+.hryvinskyi_mcp-server-index .mcp-status--blocked {
+    background: var(--hui-warn-bg);
+    color: var(--hui-warn-ink);
 }
 
-.mcp-status--denied .mcp-status__dot {
-    background: #e22626;
+.hryvinskyi_mcp-server-index .mcp-status--denied {
+    background: var(--hui-error-bg);
+    color: var(--hui-error-ink);
 }
 
-.mcp-status__note {
-    margin-top: 0.2rem;
-    color: #6f6f6f;
-    font-size: 1.2rem;
+.hryvinskyi_mcp-server-index .mcp-status--confirm {
+    background: var(--hui-accent-bg);
+    color: var(--hui-accent-ink);
 }
 
-.mcp-acl {
+.hryvinskyi_mcp-server-index .mcp-status__note {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--hui-muted);
+}
+
+.hryvinskyi_mcp-server-index .mcp-acl {
     display: inline-block;
-    margin: 0 0.4rem 0.4rem 0;
-    padding: 0.1rem 0.6rem;
-    border: 1px solid #e3e3e3;
-    background: #f8f8f8;
-    font-size: 1.2rem;
+    margin: 0 4px 4px 0;
+    padding: 1px 8px;
+    font-family: var(--hui-mono);
+    font-size: 11.5px;
+    background: var(--hui-canvas);
+    border: 1px solid var(--hui-line);
+    border-radius: var(--hui-radius-box);
 }
 
-.mcp-acl--open {
+.hryvinskyi_mcp-server-index .mcp-acl--open {
+    font-family: inherit;
     border-style: dashed;
-}
-
-/* Sections card */
-.mcp-sections__table {
-    margin: 0;
-    border: 0;
-}
-
-.mcp-sections__modules {
-    color: #6f6f6f;
-    font-size: 1.2rem;
-}
-
-.mcp-sections__row--off td {
-    background: #fbfbfb;
-    color: #6f6f6f;
-}
-
-.mcp-sections__table form {
-    margin: 0;
 }

@@ -43,7 +43,7 @@ class BuiltInDenyListRuleTest extends TestCase
         ];
         yield 'a module glob does not reach a service of the same name in another module' => [
             'integration.*',
-            'catalog.integration.get',
+            'store.integration.get',
             false,
         ];
         yield 'a prefix glob covers each module sharing the prefix' => [
@@ -96,7 +96,7 @@ class BuiltInDenyListRuleTest extends TestCase
 
         self::assertTrue($rule->matches('two_factor_auth.tfa.get_user_config'));
         self::assertTrue($rule->matches('integration.admin_token_service.create_admin_access_token'));
-        self::assertFalse($rule->matches('catalog.product_repository.get_list'));
+        self::assertFalse($rule->matches('store.store_repository.get_list'));
     }
 
     public function testAPatternAnotherModuleDroppedMatchesNothing(): void

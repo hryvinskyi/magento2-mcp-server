@@ -15,6 +15,8 @@ use Hryvinskyi\McpServer\Model\Protocol\ProtocolAnswer;
 use Hryvinskyi\McpServer\Model\Protocol\Server;
 use Hryvinskyi\McpServer\Model\Protocol\TransportContext;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\RecordingPoolAbility;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\RegistersTestAbilities;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\TestFramework\Fixture\DbIsolation;
@@ -29,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 class ServerTest extends TestCase
 {
     use BlocksRealGraphQlClient;
+    use RegistersTestAbilities;
     use SwitchesGraphQlSourceOff;
 
     /**
@@ -80,6 +83,8 @@ class ServerTest extends TestCase
 
     public function testExecuteAbilityAnswersAnUnknownNameAsAToolErrorAndADenialAsAJsonRpcError(): void
     {
+        $save = $this->registerTestSaveAbility();
+        $this->server = $this->service(Server::class);
         $session = $this->server->handle(
             '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
             $this->context('')
@@ -87,22 +92,20 @@ class ServerTest extends TestCase
 
         $unknown = $this->decode($this->server->handle(
             '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"execute_ability",'
-            . '"arguments":{"name":"catalog.nothing.here"}}}',
+            . '"arguments":{"name":"hryvinskyi_mcp_test.nothing.here"}}}',
             $this->context($session)
         ));
         $denied = $this->decode($this->server->handle(
             '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"execute_ability",'
-            . '"arguments":{"name":"catalog.product_repository.save","arguments":{"product":{"sku":"x"}}}}}',
+            . '"arguments":{"name":"' . RecordingPoolAbility::SAVE . '","arguments":{"record":{"code":"x"}}}}}',
             $this->context($session)
         ));
 
         self::assertTrue($this->arrayAt($unknown, 'result')['isError']);
         $error = $this->arrayAt($denied, 'error');
         self::assertSame(-32003, $error['code']);
-        self::assertSame(
-            ['ability' => 'catalog.product_repository.save', 'reason' => 'read_only_mode'],
-            $error['data']
-        );
+        self::assertSame(['ability' => RecordingPoolAbility::SAVE, 'reason' => 'read_only_mode'], $error['data']);
+        self::assertSame([], $save->calls, 'The denied write never ran.');
     }
 
     public function testTheWiredServerRefusesABodyOverOneMebibyteAndABatchOverTwentyMessages(): void

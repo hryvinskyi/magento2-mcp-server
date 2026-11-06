@@ -15,6 +15,8 @@ use Hryvinskyi\McpServer\Model\Config;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\AdminRoles;
 use Hryvinskyi\McpServer\Test\Integration\Http\McpEndpointClient;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\RecordingPoolAbility;
+use Hryvinskyi\McpServer\Test\Integration\Fixture\RegistersTestAbilities;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Laminas\Http\Header\HeaderInterface;
 use Magento\Authorization\Model\UserContextInterface;
@@ -45,6 +47,7 @@ use PHPUnit\Framework\TestCase;
 class McpEndpointTest extends TestCase
 {
     use BlocksRealGraphQlClient;
+    use RegistersTestAbilities;
     use SwitchesGraphQlSourceOff;
 
     private const ADMIN = 990201;
@@ -161,35 +164,25 @@ class McpEndpointTest extends TestCase
         self::assertNull($this->json($emptyBatch)['id']);
     }
 
+    /**
+     * The write is a test ability registered in the pool, which records every call it gets
+     */
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
-    public function testReadOnlyModeDeniesAWriteAbilityAndTheProductIsNotCreated(): void
+    public function testReadOnlyModeDeniesAWriteAbilityAndTheAbilityNeverRuns(): void
     {
+        $save = $this->registerTestSaveAbility();
         $session = $this->initialize();
-        $sku = 'mcp-end-to-end-read-only';
 
         $saved = $this->client->post($this->toolCall('execute_ability', [
-            'name' => 'catalog.product_repository.save',
-            'arguments' => ['product' => [
-                'sku' => $sku,
-                'name' => 'MCP end to end',
-                'attribute_set_id' => 4,
-                'price' => 1,
-                'type_id' => 'simple',
-            ]],
+            'name' => RecordingPoolAbility::SAVE,
+            'arguments' => ['record' => ['code' => 'mcp-end-to-end-read-only']],
         ]), $this->sessionHeaders($session));
 
         self::assertSame(200, $saved->getStatusCode());
         $error = $this->errorOf($saved);
         self::assertSame(-32003, $error['code']);
-        self::assertSame(
-            ['ability' => 'catalog.product_repository.save', 'reason' => 'read_only_mode'],
-            $error['data']
-        );
-        $lookup = $this->callTool($session, 'execute_ability', [
-            'name' => 'catalog.product_repository.get',
-            'arguments' => ['sku' => $sku],
-        ]);
-        self::assertTrue($this->resultOf($lookup)['isError'], 'The product does not exist.');
+        self::assertSame(['ability' => RecordingPoolAbility::SAVE, 'reason' => 'read_only_mode'], $error['data']);
+        self::assertSame([], $save->calls, 'The write was not run.');
     }
 
     /**
@@ -412,14 +405,14 @@ class McpEndpointTest extends TestCase
     {
         $session = $this->initialize();
 
-        $response = $this->callTool($session, 'execute_ability', ['name' => 'catalog.nothing_here.get']);
+        $response = $this->callTool($session, 'execute_ability', ['name' => 'hryvinskyi_mcp_test.nothing_here.get']);
 
         self::assertSame(200, $response->getStatusCode());
         $result = $this->resultOf($response);
         self::assertTrue($result['isError']);
         $text = $this->arrayAt($this->arrayAt($result, 'content'), 0)['text'] ?? null;
         self::assertIsString($text);
-        self::assertStringContainsString('catalog.nothing_here.get', $text);
+        self::assertStringContainsString('hryvinskyi_mcp_test.nothing_here.get', $text);
     }
 
     /**

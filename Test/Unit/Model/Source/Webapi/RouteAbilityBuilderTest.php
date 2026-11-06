@@ -27,7 +27,7 @@ use PHPUnit\Framework\TestCase;
  */
 class RouteAbilityBuilderTest extends TestCase
 {
-    private const PRODUCTS = 'Magento\Catalog\Api\ProductRepositoryInterface';
+    private const STORES = 'Magento\Store\Api\StoreRepositoryInterface';
 
     /**
      * @var RecordingLogger
@@ -41,34 +41,34 @@ class RouteAbilityBuilderTest extends TestCase
 
     public function testAnAbilityTakesItsValuesFromTheRouteAndTheMethodDocumentation(): void
     {
-        $documentation = "Get product list. Filters by the search criteria.\nThe second line.";
-        $ability = $this->builder([self::PRODUCTS . '::getList' => $documentation])
-            ->build($this->route('GET', '/V1/products', self::PRODUCTS, 'getList'), 'webapi');
+        $documentation = "Get store view list. Lists every store view.\nThe second line.";
+        $ability = $this->builder([self::STORES . '::getList' => $documentation])
+            ->build($this->route('GET', '/V1/store/storeViews', self::STORES, 'getList'), 'webapi');
 
         self::assertInstanceOf(AbilityInterface::class, $ability);
-        self::assertSame('catalog.product_repository.get_list', $ability->getName());
-        self::assertSame('Get product list', $ability->getTitle());
+        self::assertSame('store.store_repository.get_list', $ability->getName());
+        self::assertSame('Get store view list', $ability->getTitle());
         self::assertSame($documentation, $ability->getDescription());
-        self::assertSame('Magento_Catalog', $ability->getCategory());
+        self::assertSame('Magento_Store', $ability->getCategory());
         self::assertSame('webapi', $ability->getSource());
-        self::assertSame('GET /V1/products', $ability->getSourceReference());
+        self::assertSame('GET /V1/store/storeViews', $ability->getSourceReference());
         self::assertSame(AbilityAccess::Read, $ability->getAccess());
-        self::assertSame(['Magento_Catalog::products'], $ability->getAclResources());
+        self::assertSame(['Magento_Backend::stores'], $ability->getAclResources());
     }
 
     public function testATitleWithoutAFullStopIsTheFirstLine(): void
     {
-        $ability = $this->builder([self::PRODUCTS . '::get' => "Get info about product by product SKU\n\nMore."])
-            ->build($this->route('GET', '/V1/products/:sku', self::PRODUCTS, 'get'), 'webapi');
+        $ability = $this->builder([self::STORES . '::get' => "Get info about a store view by its code\n\nMore."])
+            ->build($this->route('GET', '/V1/store/storeViews/:id', self::STORES, 'get'), 'webapi');
 
         self::assertInstanceOf(AbilityInterface::class, $ability);
-        self::assertSame('Get info about product by product SKU', $ability->getTitle());
+        self::assertSame('Get info about a store view by its code', $ability->getTitle());
     }
 
     public function testWithoutDocumentationTheTitleIsTheMethodInWords(): void
     {
         $ability = $this->builder([])
-            ->build($this->route('DELETE', '/V1/products/:sku', self::PRODUCTS, 'deleteById'), 'webapi');
+            ->build($this->route('DELETE', '/V1/store/storeViews/:id', self::STORES, 'deleteById'), 'webapi');
 
         self::assertInstanceOf(AbilityInterface::class, $ability);
         self::assertSame('Delete by id', $ability->getTitle());
@@ -91,7 +91,7 @@ class RouteAbilityBuilderTest extends TestCase
     #[DataProvider('accesses')]
     public function testTheAccessFollowsTheHttpMethod(string $httpMethod, AbilityAccess $access): void
     {
-        $route = $this->route($httpMethod, '/V1/products', self::PRODUCTS, 'save');
+        $route = $this->route($httpMethod, '/V1/store/storeViews', self::STORES, 'save');
         $ability = $this->builder([])->build($route, 'webapi');
 
         self::assertInstanceOf(AbilityInterface::class, $ability);
@@ -100,10 +100,10 @@ class RouteAbilityBuilderTest extends TestCase
 
     public function testAnAccessOverrideReplacesTheAccessOfTheHttpMethod(): void
     {
-        $builder = $this->builder([], ['catalog.product_repository.get_list' => 'write']);
+        $builder = $this->builder([], ['store.store_repository.get_list' => 'write']);
 
-        $overridden = $builder->build($this->route('GET', '/V1/products', self::PRODUCTS, 'getList'), 'webapi');
-        $untouched = $builder->build($this->route('GET', '/V1/products/:sku', self::PRODUCTS, 'get'), 'webapi');
+        $overridden = $builder->build($this->route('GET', '/V1/store/storeViews', self::STORES, 'getList'), 'webapi');
+        $untouched = $builder->build($this->route('GET', '/V1/store/storeViews/:id', self::STORES, 'get'), 'webapi');
 
         self::assertSame(AbilityAccess::Write, $overridden?->getAccess());
         self::assertSame(AbilityAccess::Read, $untouched?->getAccess());
@@ -112,16 +112,16 @@ class RouteAbilityBuilderTest extends TestCase
 
     public function testAnAccessOverrideCanAlsoMarkAWriteRouteAsRead(): void
     {
-        $ability = $this->builder([], ['catalog.product_repository.save' => 'read'])
-            ->build($this->route('POST', '/V1/products', self::PRODUCTS, 'save'), 'webapi');
+        $ability = $this->builder([], ['store.store_repository.save' => 'read'])
+            ->build($this->route('POST', '/V1/store/storeViews', self::STORES, 'save'), 'webapi');
 
         self::assertSame(AbilityAccess::Read, $ability?->getAccess());
     }
 
     public function testAnAccessOverrideThatIsNoAccessDropsTheAbility(): void
     {
-        $ability = $this->builder([], ['catalog.product_repository.get_list' => 'readwrite'])
-            ->build($this->route('GET', '/V1/products', self::PRODUCTS, 'getList'), 'webapi');
+        $ability = $this->builder([], ['store.store_repository.get_list' => 'readwrite'])
+            ->build($this->route('GET', '/V1/store/storeViews', self::STORES, 'getList'), 'webapi');
 
         self::assertNull($ability);
         self::assertStringContainsString('"readwrite"', $this->logger->messages('warning')[0]);
@@ -129,10 +129,11 @@ class RouteAbilityBuilderTest extends TestCase
 
     public function testAnotherHttpMethodIsLoggedAndSkipped(): void
     {
-        $ability = $this->builder([])->build($this->route('PATCH', '/V1/products', self::PRODUCTS, 'save'), 'webapi');
+        $ability = $this->builder([])
+            ->build($this->route('PATCH', '/V1/store/storeViews', self::STORES, 'save'), 'webapi');
 
         self::assertNull($ability);
-        self::assertStringContainsString('PATCH /V1/products', $this->logger->messages('warning')[0]);
+        self::assertStringContainsString('PATCH /V1/store/storeViews', $this->logger->messages('warning')[0]);
     }
 
     public function testAClassThatCannotBeNamedIsLoggedAndSkipped(): void
@@ -183,6 +184,6 @@ class RouteAbilityBuilderTest extends TestCase
      */
     private function route(string $httpMethod, string $url, string $class, string $method): Route
     {
-        return new Route($url, $httpMethod, $class, $method, ['Magento_Catalog::products']);
+        return new Route($url, $httpMethod, $class, $method, ['Magento_Backend::stores']);
     }
 }

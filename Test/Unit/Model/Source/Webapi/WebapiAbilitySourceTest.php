@@ -35,7 +35,7 @@ use PHPUnit\Framework\TestCase;
  */
 class WebapiAbilitySourceTest extends TestCase
 {
-    private const PRODUCTS = 'Magento\Catalog\Api\ProductRepositoryInterface';
+    private const STORES = 'Magento\Store\Api\StoreRepositoryInterface';
 
     /**
      * @var RecordingLogger
@@ -62,15 +62,15 @@ class WebapiAbilitySourceTest extends TestCase
         $this->logger = new RecordingLogger();
         $this->schemaBuilder = new CountingSchemaBuilder();
         $this->metadata = new FakeMetadataReader();
-        $this->acl = new FakeAuthorization(['Magento_Catalog::products', 'anonymous']);
+        $this->acl = new FakeAuthorization(['Magento_Backend::stores', 'anonymous']);
     }
 
     public function testEveryRouteBecomesAnAbilityOfTheSource(): void
     {
         $source = $this->source([
-            '/V1/products' => [
-                'GET' => FakeWebapiConfig::route(self::PRODUCTS, 'getList'),
-                'POST' => FakeWebapiConfig::route(self::PRODUCTS, 'save'),
+            '/V1/store/storeViews' => [
+                'GET' => FakeWebapiConfig::route(self::STORES, 'getList'),
+                'POST' => FakeWebapiConfig::route(self::STORES, 'save'),
             ],
         ]);
 
@@ -78,7 +78,7 @@ class WebapiAbilitySourceTest extends TestCase
 
         self::assertSame('webapi', $source->getCode());
         self::assertSame(
-            ['catalog.product_repository.get_list', 'catalog.product_repository.save'],
+            ['store.store_repository.get_list', 'store.store_repository.save'],
             array_map(static fn (AbilityInterface $ability): string => $ability->getName(), $abilities)
         );
         self::assertSame(AbilityAccess::Write, $abilities[1]->getAccess());
@@ -107,7 +107,7 @@ class WebapiAbilitySourceTest extends TestCase
     public function testTheAbilitiesAreListedOncePerRequestAndAgainAfterAReset(): void
     {
         $source = $this->source([
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'getList')],
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'getList')],
         ]);
 
         $ability = $this->listed($source)[0];
@@ -124,10 +124,10 @@ class WebapiAbilitySourceTest extends TestCase
     public function testTheAclAsksForEveryResourceOfTheRoute(): void
     {
         $source = $this->source([
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(
-                self::PRODUCTS,
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(
+                self::STORES,
                 'getList',
-                ['Magento_Catalog::products', 'Magento_Backend::admin']
+                ['Magento_Backend::stores', 'Magento_Backend::admin']
             )],
             '/V1/directory/countries' => ['GET' => FakeWebapiConfig::route(
                 'Magento\Directory\Api\CountryInformationAcquirerInterface',
@@ -135,17 +135,17 @@ class WebapiAbilitySourceTest extends TestCase
                 ['anonymous']
             )],
         ]);
-        [$countries, $products] = $this->listed($source);
+        [$countries, $storeViews] = $this->listed($source);
 
         self::assertTrue($source->isAllowed($countries));
-        self::assertFalse($source->isAllowed($products));
-        self::assertSame(['anonymous', 'Magento_Catalog::products', 'Magento_Backend::admin'], $this->acl->asked);
+        self::assertFalse($source->isAllowed($storeViews));
+        self::assertSame(['anonymous', 'Magento_Backend::stores', 'Magento_Backend::admin'], $this->acl->asked);
     }
 
     public function testTheSchemaComesFromTheBuilder(): void
     {
         $source = $this->source([
-            '/V1/products' => ['GET' => FakeWebapiConfig::route(self::PRODUCTS, 'getList')],
+            '/V1/store/storeViews' => ['GET' => FakeWebapiConfig::route(self::STORES, 'getList')],
         ]);
 
         self::assertSame(['type' => 'object'], $source->inputSchema($this->listed($source)[0]));
@@ -159,11 +159,11 @@ class WebapiAbilitySourceTest extends TestCase
         $this->expectException(NoSuchEntityException::class);
 
         $source->isAllowed(new Ability(
-            'catalog.product_repository.get_list',
+            'store.store_repository.get_list',
             'Get list',
-            'Magento_Catalog',
+            'Magento_Store',
             'webapi',
-            'GET /V1/products',
+            'GET /V1/store/storeViews',
             AbilityAccess::Read
         ));
     }

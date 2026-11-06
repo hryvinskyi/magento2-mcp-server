@@ -45,7 +45,7 @@ class PoolAbilitySourceTest extends TestCase
     protected function setUp(): void
     {
         $this->logger = new RecordingLogger();
-        $this->acl = new FakeAuthorization(['Magento_Catalog::products']);
+        $this->acl = new FakeAuthorization(['Magento_Backend::stores']);
     }
 
     public function testAnItemBecomesAnAbilityOfThePoolWithItsOwnValues(): void
@@ -227,10 +227,10 @@ class PoolAbilitySourceTest extends TestCase
     public function testTheAclAsksForEveryResourceOfTheAbility(): void
     {
         $source = $this->source([
-            self::QUOTE => new FakePoolAbility(self::QUOTE, ['Magento_Catalog::products']),
+            self::QUOTE => new FakePoolAbility(self::QUOTE, ['Magento_Backend::stores']),
             'acme_shipping.rate_service.book' => new FakePoolAbility(
                 'acme_shipping.rate_service.book',
-                ['Magento_Catalog::products', 'Magento_Sales::sales']
+                ['Magento_Backend::stores', 'Magento_Sales::sales']
             ),
         ]);
         [$quote, $book] = $this->listed($source);
@@ -238,7 +238,7 @@ class PoolAbilitySourceTest extends TestCase
         self::assertTrue($source->isAllowed($quote));
         self::assertFalse($source->isAllowed($book));
         self::assertSame(
-            ['Magento_Catalog::products', 'Magento_Catalog::products', 'Magento_Sales::sales'],
+            ['Magento_Backend::stores', 'Magento_Backend::stores', 'Magento_Sales::sales'],
             $this->acl->asked
         );
     }

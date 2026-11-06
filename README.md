@@ -12,14 +12,16 @@ Lets AI clients that speak the [Model Context Protocol](https://modelcontextprot
 - Shows the client three tools only: `discover_abilities`, `get_ability_info` and `execute_ability`. The client searches the abilities and runs one by name.
 - Blocks abilities that change data until you allow them (read-only mode), keeps abilities that any guest may call off until you allow them, asks for confirmation on abilities you mark, and always refuses a built-in list of dangerous ones.
 - Keeps client sessions in the database.
-- Shows the server on **Stores › Settings › MCP Server**: its state, how a client connects (with a configuration to
-  copy for Claude Desktop and Cursor), and every ability with its exposure and why. You put abilities on the
-  deny-list or ask for confirmation there, one by one or many at once.
+- Shows the server on **Stores › Settings › MCP Server**: its state, how a client connects (a Claude Desktop extension
+  to download, links for Cursor and VS Code, a Claude Code command, and a configuration to copy for each client), and
+  every ability with its exposure and why. You put abilities on the deny-list or ask for confirmation there, one by one
+  or many at once.
 
 ## Requirements
 
-- PHP 8.1 or higher
+- PHP 8.1 or higher, with the `zlib` extension
 - Magento 2.4.x (Open Source or Adobe Commerce)
+- The admin UI kit `hryvinskyi/magento2-admin-ui` (module `Hryvinskyi_AdminUi`), which carries the look and typeface of the MCP Server page. Composer installs it with this module.
 
 ## Installation
 
@@ -42,6 +44,8 @@ bin/magento cache:flush
 ```
 
 `setup:upgrade` creates three tables: `hryvinskyi_mcp_session`, `hryvinskyi_mcp_confirmation` and `hryvinskyi_mcp_ability_override`.
+
+When you upgrade a store that runs an older version, also run `bin/magento setup:upgrade`: the module now needs `Hryvinskyi_AdminUi`, and Magento enables a new module there. On Magento 2.4.9 a new admin controller is found only after `bin/magento cache:clean compiled_config` (or `cache:flush`), because the list of admin actions is cached under that cache type. Until then the page's integration picker gets a 404 and says the token could not be fetched.
 
 ## Configuration
 
@@ -96,7 +100,50 @@ The URL is `https://<host>/rest/all/V1/mcp`.
 
 **Admin token.** `POST /rest/V1/integration/admin/token` returns a token for an admin user. It expires after **Admin Token Lifetime (hours)** (`oauth/access_token_lifetime/admin`, default 4). With two-factor authentication enabled, that endpoint refuses to issue a token. Use an integration instead.
 
+### Connecting a client
+
+The page **Stores › Settings › MCP Server** has a **Connection** card and an **Install** card. It needs the resource **View the MCP Server page**. Create an integration first (see *Tokens*).
+
+**Picking the token.** The **Integration** list on the Connection card holds every integration of the store. A ready one (active, allowed **Use the MCP endpoint** or all resources, with an access token that is not revoked) fills its access token into the *Access token* field when you pick it. The page does not print tokens: the browser fetches the one you pick from the store, with a POST that carries the form key, and the answer is not cached. This needs the resource **System Integrations** (`Magento_Integration::integrations`), the one Magento asks for before it shows a token on its own integration page, besides **View the MCP Server page**. An integration that is not ready shows why, with a link to its edit page, and its token is never served. **New integration** opens Magento's own form in a new tab. Without **System Integrations** the list is not shown, and you paste the token.
+
+**Bearer setting.** While Magento does not accept integration tokens as Bearer tokens (see step 4 of *Tokens*), the Connection card shows a warning, because the store refuses every client that sends one. It links to the OAuth settings when you may open them (`Magento_Integration::config_oauth`).
+
+**Pasting a token.** Picking is optional. You can paste a token by hand, for an integration the list does not offer or when you may not pick. Typing in the field puts the list back on *Paste a token by hand*.
+
+The field never shows a token while the list names an integration it did not come from:
+
+- Picking an integration empties the field first, whatever it held, typed or picked, and only then fetches that integration's token. A pick that is refused, fails or is not ready leaves the field empty.
+- Choosing *Paste a token by hand* empties the field only when it holds a picked token. A token you typed stays.
+- A token the field lost to a pick does not come back. Paste it again.
+
+The card says *This integration's token cannot be used* only when the store refuses that integration. Any other problem, such as no answer, an error page or a missing right, reads as *The token could not be fetched*.
+
+**Claude Desktop.** Download the `.mcpb` file with **Download for Claude Desktop (.mcpb)** and open it.
+
+- Claude Desktop asks for the store endpoint, already filled in, and for the access token. It keeps the token in the system's keychain.
+- The extension is not signed, so Claude Desktop warns before it installs it.
+- The extension runs on the Node.js that ships with Claude Desktop. You install nothing else.
+- The extension is named after the store's host. Several stores can be installed side by side.
+- The extension has its own version. After an upgrade of this module that changes it, download the file again and open it.
+- The extension refuses an `http://` endpoint, unless the host is `localhost`, `127.0.0.1` or `[::1]`. A store without a secure base URL needs one before you use it.
+- It never follows a redirect and never retries a request, because a call may change data. A lost session is opened again once.
+- If your organisation blocks custom extensions in Claude Desktop, use the manual configuration with `mcp-remote` below.
+
+**Cursor and VS Code.** Pick an integration, or paste the access token, into the field *Access token* on the page. A picked token comes from the store; a pasted one stays in the browser tab and is never sent to the store. When the field holds a valid token, the links **Add to Cursor** and **Install in VS Code** appear. They open the client, which asks you to confirm. The token is then part of the client's own configuration file, in plain text.
+
+**Claude Code.** The page shows this command with a button to copy it, with your token in it once the field holds one:
+
+```bash
+claude mcp add --transport http magento "https://<host>/rest/all/V1/mcp" --header "Authorization: Bearer <token>"
+```
+
+The shell keeps the command, token included, in its history. To keep the token out of the history, run `claude mcp add` without `--header` and add the header to the configuration file it writes.
+
+Until the field holds a token, the command and the JSON configurations show the placeholder `<integration-token>`.
+
 ### Client configuration
+
+Each client's configuration by hand. Claude Desktop uses this when the extension is blocked.
 
 **Cursor** (`.cursor/mcp.json`, a remote server with headers):
 
@@ -381,13 +428,21 @@ The module adds these ACL resources:
 
 **Stores › Settings › MCP Server** (`Hryvinskyi_McpServer::view`):
 
-- **Connection**: whether the server is on and in read-only mode, the endpoint URL (the default store view's secure base
-  URL followed by `rest/all/V1/mcp`), the stdio command, how to authorize, the protocol version and how many abilities a
-  client may call, and whether personal data is hidden. A notice says so when some ability sends personal data.
+- **Connection**: a card with the endpoint URL (the default store view's secure base URL followed by
+  `rest/all/V1/mcp`), the list of integrations to take a token from, **New integration**, the *Access token* field and,
+  while integration tokens are not accepted as Bearer tokens, a warning with a link to the OAuth settings (see
+  *Connecting a client*). A notice above the cards says so when the server is disabled, when it is in read-only mode,
+  and when some ability sends personal data.
+- **Install**: the Claude Desktop extension to download, the **Add to Cursor** and **Install in VS Code** links, which
+  appear once the token field holds a valid token, and the Claude Code command to copy. A token pasted by hand stays
+  in the browser tab and is never sent to the store; a picked token is fetched from the store.
+- **Manual configuration** (folded into the Install card): a JSON configuration per client (Claude Desktop, Cursor)
+  and transport (HTTP, stdio), with the file it goes into. The token and the admin login are placeholders you fill in
+  or, once the field holds a token, the token; the page never prints a secret it was not given. Claude Desktop reaches
+  an HTTP server with a Bearer token through the `mcp-remote` bridge (`npx`).
+- **Details** (folded): the stdio command, how to authorize, the protocol version, how many abilities a client may
+  call and how many are exposed, and whether personal data is hidden.
 - **Sections**: every area of the store with its modules and abilities, and a switch for each (see *Sections*).
-- **Client configuration**: a JSON configuration per client (Claude Desktop, Cursor) and transport (HTTP, stdio), with
-  the file it goes into. The token and the admin login are placeholders you fill in; the page never prints a secret.
-  Claude Desktop reaches an HTTP server with a Bearer token through the `mcp-remote` bridge (`npx`).
 - **Ability catalog**: every ability with its source, module, access, required ACL resources and exposure. The exposure
   line says why: put on the deny-list on this page, on the module's built-in deny-list, open to anyone while anonymous
   abilities are off, in a section switched off, blocked by read-only mode, or waiting for a confirmation. The section

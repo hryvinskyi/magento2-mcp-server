@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\McpServer\Test\Unit\Model\Stdio;
 
+use Hryvinskyi\McpServer\Model\Protocol\AnswerStatus;
+use Hryvinskyi\McpServer\Model\Protocol\ErrorCode;
 use Hryvinskyi\McpServer\Model\Protocol\JsonEncoder;
 use Hryvinskyi\McpServer\Model\Protocol\JsonRpcResponses;
 use Hryvinskyi\McpServer\Model\Stdio\Envelope;
@@ -28,8 +30,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * The serving loop of the stdio transport over in-memory streams and a scripted process runner: one message process
- * per line, started from an argument list, nothing but answer bodies on the output, only the refusal code stops it,
- * and a lost session is opened again once per line
+ * per line, started from an argument list, nothing but answer bodies on the output, a refusal of a whole line written
+ * with the ids of its requests, only the refusal code stops it, and a lost session is opened again once per line
  */
 class StdioLoopTest extends TestCase
 {
@@ -41,6 +43,7 @@ class StdioLoopTest extends TestCase
     private const LIST = '{"jsonrpc":"2.0","id":2,"method":"tools/list"}';
     private const REFUSED = 77;
     private const NOT_FOUND = '{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Session not found."}}';
+    private const LIST_NOT_FOUND = '{"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Session not found."}}';
     private const BASE_COMMAND = [
         self::PHP,
         '-d',
@@ -432,7 +435,7 @@ class StdioLoopTest extends TestCase
         );
     }
 
-    public function testWhenTheSessionCannotBeOpenedAgainTheLostAnswerIsWrittenAndTheLoopGoesOn(): void
+    public function testWhenTheSessionCannotBeOpenedAgainTheLostAnswerIsWrittenWithTheRequestsIdAndTheLoopGoesOn(): void
     {
         $runner = new ScriptedProcessRunner([
             new ProcessResult(0),
@@ -453,9 +456,10 @@ class StdioLoopTest extends TestCase
 
         self::assertSame(0, $exit);
         self::assertSame(
-            '{"jsonrpc":"2.0","id":1,"result":{}}' . "\n" . self::NOT_FOUND . "\n"
+            '{"jsonrpc":"2.0","id":1,"result":{}}' . "\n" . self::LIST_NOT_FOUND . "\n"
             . '{"jsonrpc":"2.0","id":3,"result":{}}' . "\n",
-            $this->contents($this->output)
+            $this->contents($this->output),
+            'The client reads the lost-session error with the id of its request.'
         );
         self::assertStringContainsString('could not be opened again', $this->contents($this->errorOutput));
         self::assertSame(self::INITIALIZE, $runner->runs[3]['input']);
@@ -479,7 +483,7 @@ class StdioLoopTest extends TestCase
         );
 
         self::assertCount(5, $runner->runs);
-        self::assertStringEndsWith(self::NOT_FOUND . "\n", $this->contents($this->output));
+        self::assertStringEndsWith(self::LIST_NOT_FOUND . "\n", $this->contents($this->output));
     }
 
     public function testALineThatFindsTheNewSessionLostAsWellIsAnsweredAsLostWithoutAnotherReplay(): void
@@ -506,7 +510,7 @@ class StdioLoopTest extends TestCase
             'One replay for the line, then the end of the session the replay opened.'
         );
         self::assertSame(
-            '{"jsonrpc":"2.0","id":1,"result":{}}' . "\n" . self::NOT_FOUND . "\n",
+            '{"jsonrpc":"2.0","id":1,"result":{}}' . "\n" . self::LIST_NOT_FOUND . "\n",
             $this->contents($this->output)
         );
         self::assertStringContainsString('was lost as well', $this->contents($this->errorOutput));
@@ -522,7 +526,69 @@ class StdioLoopTest extends TestCase
         $this->loop($runner)->run('jane', $this->stream(self::LIST . "\n"), $this->output, $this->errorOutput);
 
         self::assertCount(2, $runner->runs);
-        self::assertSame(self::NOT_FOUND . "\n", $this->contents($this->output));
+        self::assertSame(self::LIST_NOT_FOUND . "\n", $this->contents($this->output));
+    }
+
+    public function testARefusalOfALineSentBeforeInitializeIsWrittenWithTheIdOfTheRequestItRefused(): void
+    {
+        $missing = 'Bad Request: the Mcp-Session-Id header is missing. Send initialize first.';
+        $runner = new ScriptedProcessRunner([
+            new ProcessResult(0),
+            $this->envelope($this->refusal(AnswerStatus::BadRequest, ErrorCode::InvalidRequest, $missing), ''),
+        ]);
+
+        $exit = $this->loop($runner)->run('jane', $this->stream(self::LIST . "\n"), $this->output, $this->errorOutput);
+
+        self::assertSame(0, $exit);
+        self::assertSame(
+            '{"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"' . $missing . '"}}' . "\n",
+            $this->contents($this->output)
+        );
+    }
+
+    public function testAnInternalErrorWithTheIdNullIsWrittenWithTheIdOfTheRequestItAnswers(): void
+    {
+        $runner = new ScriptedProcessRunner([
+            new ProcessResult(0),
+            $this->envelope($this->refusal(AnswerStatus::Ok, ErrorCode::InternalError, 'Internal error'), ''),
+        ]);
+
+        $exit = $this->loop($runner)->run('jane', $this->stream(self::LIST . "\n"), $this->output, $this->errorOutput);
+
+        self::assertSame(0, $exit);
+        self::assertSame(
+            '{"jsonrpc":"2.0","id":2,"error":{"code":-32603,"message":"Internal error"}}' . "\n",
+            $this->contents($this->output)
+        );
+    }
+
+    public function testARefusalOfABatchIsWrittenOnceForEachOfItsRequests(): void
+    {
+        $runner = new ScriptedProcessRunner([new ProcessResult(0), $this->envelope(self::NOT_FOUND, '')]);
+        $batch = '[' . self::LIST . ',' . self::INITIALIZED . ',{"jsonrpc":"2.0","id":"p","method":"ping"}]';
+
+        $this->loop($runner)->run('jane', $this->stream($batch . "\n"), $this->output, $this->errorOutput);
+
+        self::assertSame(
+            '[' . self::LIST_NOT_FOUND . ','
+            . '{"jsonrpc":"2.0","id":"p","error":{"code":-32600,"message":"Session not found."}}]' . "\n",
+            $this->contents($this->output)
+        );
+    }
+
+    public function testARefusalOfANotificationWritesNothing(): void
+    {
+        $runner = new ScriptedProcessRunner([
+            new ProcessResult(0),
+            $this->envelope($this->refusal(AnswerStatus::Ok, ErrorCode::InternalError, 'Internal error'), ''),
+        ]);
+
+        $exit = $this->loop($runner)
+            ->run('jane', $this->stream(self::INITIALIZED . "\n"), $this->output, $this->errorOutput);
+
+        self::assertSame(0, $exit);
+        self::assertCount(2, $runner->runs);
+        self::assertSame('', $this->contents($this->output));
     }
 
     public function testARetryThatFailsIsAnsweredWithTheLinesOwnInternalError(): void
@@ -620,6 +686,19 @@ class StdioLoopTest extends TestCase
             $maxLineBytes,
             self::PHP
         );
+    }
+
+    /**
+     * A refusal of a whole line, written the way the protocol server writes one
+     *
+     * @param AnswerStatus $status
+     * @param ErrorCode $code
+     * @param string $message
+     * @return string
+     */
+    private function refusal(AnswerStatus $status, ErrorCode $code, string $message): string
+    {
+        return (new ProtocolKit($this))->answers()->error($status, $code, $message)->getBody();
     }
 
     /**

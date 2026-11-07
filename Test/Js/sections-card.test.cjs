@@ -24,7 +24,7 @@ const ON_URL = 'https://shop.example/admin/mcpserver/section/on/';
 const OFF_URL = 'https://shop.example/admin/mcpserver/section/off/';
 const WORDING = {on: 'On', off: 'Off', switchOn: 'Switch on', switchOff: 'Switch off', failed: 'Reload and try again.'};
 const SYSTEM = 'Magento_Backend::system';
-const SALES = 'Magento_Sales::sales';
+const SALES = 'Acme_Shop::sales';
 const GONE = 'Example_Removed::removed';
 const CATALOG_SOURCE = 'hryvinskyi_mcp_ability_listing.hryvinskyi_mcp_ability_listing_data_source';
 const TOTAL = '[data-role="mcp-exposed-total"]';

@@ -24,12 +24,12 @@ class SectionOffRuleTest extends TestCase
 {
     public function testAnAbilityIsDeniedWhenOneOfItsSectionsIsOff(): void
     {
-        $rule = $this->rule(['Magento_InventoryApi::inventory']);
+        $rule = $this->rule(['Acme_Stock::inventory']);
 
         self::assertSame(
             [Exposure::Denied, null, 'section_off'],
             [
-                $rule->exposureOf($this->ability(['Magento_User::acl_users', 'Magento_InventoryApi::source'])),
+                $rule->exposureOf($this->ability(['Magento_User::acl_users', 'Acme_Stock::source'])),
                 $rule->exposureOf($this->ability(['Magento_User::acl_users'])),
                 $rule->denialReason(),
             ]

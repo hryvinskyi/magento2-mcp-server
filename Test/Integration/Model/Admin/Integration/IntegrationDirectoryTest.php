@@ -11,6 +11,8 @@ namespace Hryvinskyi\McpServer\Test\Integration\Model\Admin\Integration;
 
 use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectoryInterface;
 use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationReadiness;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdict;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdictsInterface;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\CreatesIntegrations;
 use Magento\Authorization\Model\ResourceModel\Role\Collection as RoleCollection;
 use Magento\Authorization\Model\Acl\Role\Group;
@@ -35,24 +37,47 @@ class IntegrationDirectoryTest extends TestCase
     {
         $integration = $this->createIntegration('mcp-test endpoint only', [self::ACCESS]);
 
-        self::assertSame(IntegrationReadiness::Ready, $this->directory()->readinessOf($integration['id']));
+        self::assertSame(IntegrationReadiness::Ready, $this->readinessOf($integration['id']));
+    }
+
+    public function testTheVerdictOnAReadyIntegrationCarriesTheTokenMagentoStoredForItsConsumer(): void
+    {
+        $integration = $this->createIntegration('mcp-test verdict token', [self::ACCESS]);
+
+        $verdict = $this->verdicts()->verdictOf($integration['id']);
+
+        self::assertInstanceOf(IntegrationVerdict::class, $verdict);
+        self::assertSame(IntegrationReadiness::Ready, $verdict->getReadiness());
+        self::assertTrue(hash_equals($integration['token'], (string) $verdict->getUsableToken()));
+    }
+
+    public function testTheVerdictOnAnIntegrationWhoseTokenWasRevokedCarriesNoToken(): void
+    {
+        $integration = $this->createIntegration('mcp-test verdict revoked', [self::ACCESS]);
+        $this->revokeTokenOf($integration['consumerId']);
+
+        $verdict = $this->verdicts()->verdictOf($integration['id']);
+
+        self::assertInstanceOf(IntegrationVerdict::class, $verdict);
+        self::assertSame(IntegrationReadiness::NoToken, $verdict->getReadiness());
+        self::assertNull($verdict->getUsableToken());
     }
 
     public function testAnIntegrationWithAllResourcesIsReady(): void
     {
         $integration = $this->createIntegration('mcp-test all resources', null);
 
-        self::assertSame(IntegrationReadiness::Ready, $this->directory()->readinessOf($integration['id']));
+        self::assertSame(IntegrationReadiness::Ready, $this->readinessOf($integration['id']));
     }
 
     public function testAnIntegrationWhoseResourcesLeaveOutTheEndpointHasNoEndpointAccess(): void
     {
         $integration = $this->createIntegration(
-            'mcp-test catalog only',
-            ['Magento_Catalog::catalog', 'Magento_Catalog::products']
+            'mcp-test stores only',
+            ['Magento_Backend::stores', 'Magento_Backend::stores_settings']
         );
 
-        self::assertSame(IntegrationReadiness::NoEndpointAccess, $this->directory()->readinessOf($integration['id']));
+        self::assertSame(IntegrationReadiness::NoEndpointAccess, $this->readinessOf($integration['id']));
     }
 
     public function testAnIntegrationWhoseTokenWasRevokedHasNoToken(): void
@@ -60,14 +85,14 @@ class IntegrationDirectoryTest extends TestCase
         $integration = $this->createIntegration('mcp-test revoked', [self::ACCESS]);
         $this->revokeTokenOf($integration['consumerId']);
 
-        self::assertSame(IntegrationReadiness::NoToken, $this->directory()->readinessOf($integration['id']));
+        self::assertSame(IntegrationReadiness::NoToken, $this->readinessOf($integration['id']));
     }
 
     public function testAnIntegrationWithoutATokenHasNoToken(): void
     {
         $integration = $this->createIntegration('mcp-test no token', [self::ACCESS], withToken: false);
 
-        self::assertSame(IntegrationReadiness::NoToken, $this->directory()->readinessOf($integration['id']));
+        self::assertSame(IntegrationReadiness::NoToken, $this->readinessOf($integration['id']));
     }
 
     public function testACreatedIntegrationThatWasNeverActivatedIsInactive(): void
@@ -79,25 +104,25 @@ class IntegrationDirectoryTest extends TestCase
             false
         );
 
-        self::assertSame(IntegrationReadiness::Inactive, $this->directory()->readinessOf($integration['id']));
+        self::assertSame(IntegrationReadiness::Inactive, $this->readinessOf($integration['id']));
     }
 
     public function testAnUnknownIntegrationHasNoReadiness(): void
     {
         $integration = $this->createIntegration('mcp-test known', [self::ACCESS]);
 
-        self::assertNull($this->directory()->readinessOf($integration['id'] + 1000));
+        self::assertNull($this->verdicts()->verdictOf($integration['id'] + 1000));
     }
 
     public function testTheListingNamesEveryIntegrationWithItsReadinessSortedByNameWhateverTheCase(): void
     {
         $ready = $this->createIntegration('mcp-test a ready', [self::ACCESS]);
         $all = $this->createIntegration('MCP-TEST b all resources', null);
-        $catalog = $this->createIntegration('mcp-test c catalog', ['Magento_Catalog::catalog']);
+        $stores = $this->createIntegration('mcp-test c stores', ['Magento_Backend::stores']);
         $revoked = $this->createIntegration('Mcp-Test d revoked', [self::ACCESS]);
         $this->revokeTokenOf($revoked['consumerId']);
         $inactive = $this->createIntegration('mcp-test e inactive', [self::ACCESS], Integration::STATUS_INACTIVE);
-        $ours = [$ready['id'], $all['id'], $catalog['id'], $revoked['id'], $inactive['id']];
+        $ours = [$ready['id'], $all['id'], $stores['id'], $revoked['id'], $inactive['id']];
 
         $rows = array_values(array_filter(
             $this->directory()->all(),
@@ -109,8 +134,8 @@ class IntegrationDirectoryTest extends TestCase
                 ['id' => $ready['id'], 'name' => 'mcp-test a ready', 'readiness' => IntegrationReadiness::Ready],
                 ['id' => $all['id'], 'name' => 'MCP-TEST b all resources', 'readiness' => IntegrationReadiness::Ready],
                 [
-                    'id' => $catalog['id'],
-                    'name' => 'mcp-test c catalog',
+                    'id' => $stores['id'],
+                    'name' => 'mcp-test c stores',
                     'readiness' => IntegrationReadiness::NoEndpointAccess,
                 ],
                 ['id' => $revoked['id'], 'name' => 'Mcp-Test d revoked', 'readiness' => IntegrationReadiness::NoToken],
@@ -132,7 +157,7 @@ class IntegrationDirectoryTest extends TestCase
      */
     public function testTheAdminsAclStillHoldsAfterTheListing(): void
     {
-        $this->createIntegration('mcp-test catalog only', ['Magento_Catalog::catalog']);
+        $this->createIntegration('mcp-test stores only', ['Magento_Backend::stores']);
         $this->createIntegration('mcp-test endpoint only', [self::ACCESS]);
         $administrators = $this->administratorsRoleId();
         self::assertTrue($this->policy()->isAllowed($administrators, 'Hryvinskyi_McpServer::manage'), 'Before');
@@ -144,11 +169,11 @@ class IntegrationDirectoryTest extends TestCase
 
     public function testTheAdminsAclStillHoldsAfterOneIntegrationsReadiness(): void
     {
-        $integration = $this->createIntegration('mcp-test catalog only', ['Magento_Catalog::catalog']);
+        $integration = $this->createIntegration('mcp-test stores only', ['Magento_Backend::stores']);
         $administrators = $this->administratorsRoleId();
         self::assertTrue($this->policy()->isAllowed($administrators, 'Hryvinskyi_McpServer::manage'), 'Before');
 
-        $this->directory()->readinessOf($integration['id']);
+        $this->verdicts()->verdictOf($integration['id']);
 
         self::assertTrue($this->policy()->isAllowed($administrators, 'Hryvinskyi_McpServer::manage'), 'After');
     }
@@ -180,6 +205,28 @@ class IntegrationDirectoryTest extends TestCase
         self::assertInstanceOf(PolicyInterface::class, $policy);
 
         return $policy;
+    }
+
+    /**
+     * The readiness of one integration, as the verdict taken through the real container states it
+     *
+     * @param int $integrationId
+     * @return IntegrationReadiness|null
+     */
+    private function readinessOf(int $integrationId): ?IntegrationReadiness
+    {
+        return $this->verdicts()->verdictOf($integrationId)?->getReadiness();
+    }
+
+    /**
+     * @return IntegrationVerdictsInterface
+     */
+    private function verdicts(): IntegrationVerdictsInterface
+    {
+        $verdicts = Bootstrap::getObjectManager()->get(IntegrationVerdictsInterface::class);
+        self::assertInstanceOf(IntegrationVerdictsInterface::class, $verdicts);
+
+        return $verdicts;
     }
 
     /**

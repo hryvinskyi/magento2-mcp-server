@@ -103,7 +103,7 @@ class InvocationTest extends TestCase
     private function invocation(string $transport): Invocation
     {
         return new Invocation(
-            'directory.country_information_acquirer.get_countries_info',
+            'acme_geo.country_information.get_countries_info',
             new Caller(UserContextInterface::USER_TYPE_INTEGRATION, 4),
             new Client(),
             $transport

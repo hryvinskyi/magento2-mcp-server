@@ -129,8 +129,8 @@ class WebapiAbilitySourceTest extends TestCase
                 'getList',
                 ['Magento_Backend::stores', 'Magento_Backend::admin']
             )],
-            '/V1/directory/countries' => ['GET' => FakeWebapiConfig::route(
-                'Magento\Directory\Api\CountryInformationAcquirerInterface',
+            '/V1/acme/countries' => ['GET' => FakeWebapiConfig::route(
+                'Acme\Geo\Api\CountryInformationInterface',
                 'getCountriesInfo',
                 ['anonymous']
             )],

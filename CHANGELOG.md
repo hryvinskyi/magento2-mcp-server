@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-11-07
+
+### Changed
+- Handing out an integration's access token on the MCP Server page reads the integration and its token once each,
+  instead of twice. The token handed out is the one the readiness check found.
+- `IntegrationDirectoryInterface` lists integrations only; its `readinessOf()` is gone. The readiness of one
+  integration comes from the new `IntegrationVerdictsInterface::verdictOf()`, whose `IntegrationVerdict` carries the
+  token of a ready integration and never one of an integration that is not ready. Both interfaces are internal to the
+  module (`Model/Admin/Integration`).
+- The endpoint tests no longer run Directory or Customer abilities, which this module does not depend on: the
+  anonymous, deny-list and confirmation cases call a test read that anyone may call, and the password-hash guard is
+  proven on a test write it is given to guard. A separate integration test checks that the guard the container builds
+  guards the customer save ability.
+- The unit and browser tests no longer name Sales, Directory, Customer, Catalog or Inventory modules, which this module
+  does not depend on: their fixtures use the modules it declares or the fictional `Acme_*` modules and `acme_*`
+  abilities, and the integration tests that need a real ACL resource use a Backend one. The deny list and the
+  password-hash guard tests keep the store modules' real names, which they are about.
+
 ## [1.4.0] - 2026-11-06
 
 ### Added

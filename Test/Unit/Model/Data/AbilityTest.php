@@ -55,7 +55,7 @@ class AbilityTest extends TestCase
         return [
             'magento module' => ['store.store_repository.get_list'],
             'vendor prefix' => ['acme_shop_core.order_repository.get'],
-            'digits' => ['directory.country_information_acquirer.get_countries_info'],
+            'digits' => ['acme_geo.country_information.get_countries_info'],
             'digit words' => ['oauth2.v2_token.get'],
             'one letter parts' => ['a.b.c'],
         ];

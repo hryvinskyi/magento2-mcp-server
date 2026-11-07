@@ -32,10 +32,10 @@ class AbilitySectionsTest extends TestCase
                 ['Magento_Backend::system'],
                 ['System'],
             ],
-            'the area node itself' => [['Magento_Sales::sales'], ['Magento_Sales::sales'], ['Sales']],
+            'the area node itself' => [['Acme_Shop::sales'], ['Acme_Shop::sales'], ['Sales']],
             'a split area gives its children sections of their own' => [
-                ['Magento_InventoryApi::source', 'Magento_Config::config'],
-                ['Magento_InventoryApi::inventory', 'Magento_Backend::stores_settings'],
+                ['Acme_Stock::source', 'Magento_Config::config'],
+                ['Acme_Stock::inventory', 'Magento_Backend::stores_settings'],
                 ['Stores › Inventory', 'Stores › Settings'],
             ],
             'two resources of one area make one section' => [

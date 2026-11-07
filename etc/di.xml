@@ -428,8 +428,9 @@
     <preference for="Hryvinskyi\McpServer\Model\Admin\Http\NoStoreJsonInterface" type="Hryvinskyi\McpServer\Model\Admin\Http\NoStoreJson"/>
 
     <!-- The store's integrations with their readiness for MCP, and the token of a ready one. The listing never
-         carries a token; handing one out judges the integration's readiness again -->
+         carries a token; handing one out takes a fresh verdict on that integration, which carries its token -->
     <preference for="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectoryInterface" type="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectory"/>
+    <preference for="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdictsInterface" type="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectory"/>
     <preference for="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationTokensInterface" type="Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationTokens"/>
     <preference for="Hryvinskyi\McpServer\Model\Admin\Integration\AccessTokenReaderInterface" type="Hryvinskyi\McpServer\Model\Admin\Integration\AccessTokenReader"/>
 

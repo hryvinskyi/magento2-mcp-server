@@ -21,22 +21,22 @@ class RouteTest extends TestCase
 
     public function testThePathParametersAreTheColonSegmentsInOrder(): void
     {
-        $route = new Route('/V1/orders/:parent_id/items/:itemId', 'GET', self::ORDERS, 'getItem');
+        $route = new Route('/V1/acme/orders/:parent_id/items/:itemId', 'GET', self::ORDERS, 'getItem');
 
         self::assertSame(['parent_id', 'itemId'], $route->getPathParameterNames());
-        self::assertSame([], (new Route('/V1/orders', 'GET', self::ORDERS, 'getList'))->getPathParameterNames());
+        self::assertSame([], (new Route('/V1/acme/orders', 'GET', self::ORDERS, 'getList'))->getPathParameterNames());
     }
 
     public function testAnUpdateRouteNamesItsRecordByAPathParameterTheMethodDoesNotTake(): void
     {
-        $route = new Route('/V1/orders/:parent_id', 'PUT', self::ORDERS, 'save');
+        $route = new Route('/V1/acme/orders/:parent_id', 'PUT', self::ORDERS, 'save');
 
         self::assertSame(['parent_id'], $route->pathIdNames(['entity']));
     }
 
     public function testAPathParameterTheMethodTakesIsNoRecordIdWhateverItsSpelling(): void
     {
-        $route = new Route('/V1/orders/:parent_id/items/:sku', 'PUT', self::ORDERS, 'saveItem');
+        $route = new Route('/V1/acme/orders/:parent_id/items/:sku', 'PUT', self::ORDERS, 'saveItem');
 
         self::assertSame([], $route->pathIdNames(['parentId', 'sku', 'item']));
         self::assertSame(['sku'], $route->pathIdNames(['parentId', 'item']));
@@ -45,7 +45,7 @@ class RouteTest extends TestCase
     public function testOnlyAPutRouteHasRecordIds(): void
     {
         foreach (['GET', 'POST', 'DELETE'] as $httpMethod) {
-            $route = new Route('/V1/orders/:parent_id', $httpMethod, self::ORDERS, 'save');
+            $route = new Route('/V1/acme/orders/:parent_id', $httpMethod, self::ORDERS, 'save');
 
             self::assertSame([], $route->pathIdNames(['entity']), $httpMethod);
         }
@@ -53,7 +53,7 @@ class RouteTest extends TestCase
 
     public function testARouteIsNotSecureUnlessDeclaredSo(): void
     {
-        self::assertFalse((new Route('/V1/orders', 'GET', self::ORDERS, 'getList'))->isSecure());
-        self::assertTrue((new Route('/V1/orders', 'GET', self::ORDERS, 'getList', [], null, true))->isSecure());
+        self::assertFalse((new Route('/V1/acme/orders', 'GET', self::ORDERS, 'getList'))->isSecure());
+        self::assertTrue((new Route('/V1/acme/orders', 'GET', self::ORDERS, 'getList', [], null, true))->isSecure());
     }
 }

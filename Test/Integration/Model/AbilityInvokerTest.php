@@ -26,6 +26,7 @@ use Hryvinskyi\McpServer\Model\AbilityInvoker;
 use Hryvinskyi\McpServer\Model\AbilityOverrideRepository;
 use Hryvinskyi\McpServer\Model\Config;
 use Hryvinskyi\McpServer\Model\Data\InvocationResult;
+use Hryvinskyi\McpServer\Model\Guard\CustomerPasswordHashGuard;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeAbilitySource;
 use Hryvinskyi\McpServer\Test\Unit\Fake\RecordingListener;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
@@ -34,6 +35,8 @@ use Magento\Authorization\Model\UserContextInterface;
 use Magento\TestFramework\Fixture\Config as ConfigFixture;
 use Magento\TestFramework\Fixture\DbIsolation;
 use Magento\TestFramework\Helper\Bootstrap;
+use Magento\TestFramework\ObjectManager;
+use PHPUnit\Framework\Attributes\After;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -48,7 +51,7 @@ class AbilityInvokerTest extends TestCase
 
     private const READ = 'store.store_repository.get_list';
     private const WRITE = 'hryvinskyi_mcp_test.fixture.save';
-    private const CUSTOMER_SAVE = 'customer.customer_repository.save';
+    private const RECORD_SAVE = 'hryvinskyi_mcp_test.fixture.record_save';
     private const ANONYMOUS = 'hryvinskyi_mcp_test.fixture.anonymous_read';
 
     /**
@@ -82,7 +85,7 @@ class AbilityInvokerTest extends TestCase
             [
                 $this->ability(self::READ, AbilityAccess::Read),
                 $this->ability(self::WRITE, AbilityAccess::Write),
-                $this->ability(self::CUSTOMER_SAVE, AbilityAccess::Write, ['Magento_Customer::manage']),
+                $this->ability(self::RECORD_SAVE, AbilityAccess::Write, ['Hryvinskyi_McpServer::access']),
                 $this->ability(self::ANONYMOUS, AbilityAccess::Read, ['anonymous']),
             ],
             true,
@@ -147,16 +150,19 @@ class AbilityInvokerTest extends TestCase
     }
 
     #[ConfigFixture(Config::XML_PATH_READ_ONLY_MODE, '0')]
-    public function testTheWiredGuardRefusesACustomerSaveCarryingAPasswordHash(): void
+    public function testTheArgumentGuardOfTheGuardPoolRefusesASaveCarryingAPasswordHash(): void
     {
+        $this->guardPasswordHashesOf(self::RECORD_SAVE);
+        $this->invoker = $this->invokerOver($this->source);
+
         $refused = $this->invoker->invoke(
-            $this->invocation(self::CUSTOMER_SAVE)->withArguments([
-                'customer' => ['email' => 'guarded@example.com'],
+            $this->invocation(self::RECORD_SAVE)->withArguments([
+                'record' => ['code' => 'guarded'],
                 'passwordHash' => 'a hash the caller chose',
             ])
         );
         $allowed = $this->invoker->invoke(
-            $this->invocation(self::CUSTOMER_SAVE)->withArguments(['customer' => ['email' => 'guarded@example.com']])
+            $this->invocation(self::RECORD_SAVE)->withArguments(['record' => ['code' => 'guarded']])
         );
 
         self::assertSame(InvocationOutcome::Denied, $refused->getOutcome());
@@ -164,7 +170,7 @@ class AbilityInvokerTest extends TestCase
         self::assertStringStartsWith('Passwords are never set through MCP', $refused->getMessage());
         self::assertSame(InvocationOutcome::Succeeded, $allowed->getOutcome());
         self::assertSame(
-            [[self::CUSTOMER_SAVE, ['customer' => ['email' => 'guarded@example.com']]]],
+            [[self::RECORD_SAVE, ['record' => ['code' => 'guarded']]]],
             $this->source->invocations
         );
         self::assertSame([$refused, $allowed], $this->listener->results);
@@ -203,6 +209,45 @@ class AbilityInvokerTest extends TestCase
         self::assertSame(InvocationOutcome::Failed, $result->getOutcome());
         self::assertNotSame('', trim($result->getMessage()));
         self::assertSame(['started', 'finished'], $this->listener->events);
+    }
+
+    /**
+     * Make the shared password-hash guard, which the invoker's guard pool resolves, one that guards this ability
+     *
+     * The invoker must be built after it. The name the guard has as the container wires it is proven by the guard's
+     * own integration test.
+     *
+     * @param string $ability
+     * @return void
+     */
+    private function guardPasswordHashesOf(string $ability): void
+    {
+        $objectManager = $this->objectManager();
+        $guard = $objectManager->create(CustomerPasswordHashGuard::class, ['ability' => $ability]);
+        self::assertInstanceOf(CustomerPasswordHashGuard::class, $guard);
+        $objectManager->addSharedInstance($guard, CustomerPasswordHashGuard::class);
+    }
+
+    /**
+     * Drop the shared guard, so the next test builds it from di.xml
+     *
+     * @return void
+     */
+    #[After]
+    protected function forgetPasswordHashGuard(): void
+    {
+        $this->objectManager()->removeSharedInstance(CustomerPasswordHashGuard::class);
+    }
+
+    /**
+     * @return ObjectManager
+     */
+    private function objectManager(): ObjectManager
+    {
+        $objectManager = Bootstrap::getObjectManager();
+        self::assertInstanceOf(ObjectManager::class, $objectManager);
+
+        return $objectManager;
     }
 
     /**

@@ -109,7 +109,7 @@ class GraphQlSettingsTest extends TestCase
      * @param string $url
      */
     #[\PHPUnit\Framework\Attributes\TestWith(['ftp://shop.test/graphql'])]
-    #[\PHPUnit\Framework\Attributes\TestWith(['https://shop.test/rest/V1/products'])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['https://shop.test/rest/V1/acme/items'])]
     #[\PHPUnit\Framework\Attributes\TestWith(['https://user:secret@shop.test/graphql'])]
     #[\PHPUnit\Framework\Attributes\TestWith(['/graphql'])]
     public function testTheEndpointUrlSettingRefusesAnythingButAnAbsoluteGraphqlUrl(string $url): void

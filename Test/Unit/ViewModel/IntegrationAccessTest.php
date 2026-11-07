@@ -204,7 +204,6 @@ class IntegrationAccessTest extends TestCase
         /** @var IntegrationDirectoryInterface&MockObject $directory */
         $directory = $this->createMock(IntegrationDirectoryInterface::class);
         $directory->expects(self::never())->method('all');
-        $directory->expects(self::never())->method('readinessOf');
 
         return $directory;
     }

@@ -21,10 +21,12 @@ use Magento\Integration\Model\ResourceModel\Integration\CollectionFactory;
 /**
  * Lists the store's integrations from Magento's integration table and judges each one's readiness for MCP
  *
+ * The listing and the verdict on one integration share one judgement, so the rules of readiness live only here.
+ *
  * Integrations are read through the integration collection, never through the integration service: the service's
  * get() makes Magento read the integration's ACL once more for every integration. No integration model leaves this
- * class, and the token of an integration is read only to know whether a usable one exists; it is never returned or
- * kept.
+ * class. The listing reads a token only to know whether a usable one exists and never returns it; the verdict on one
+ * integration returns the token that made it ready, so the integration and its token are each read once per verdict.
  *
  * Reading an integration's ACL replaces the ACL of the request. Magento builds the ACL for one role at a time: the
  * ACL retriever drops the runtime ACL of the shared ACL builder and builds it again with the integration's rules only,
@@ -37,7 +39,7 @@ use Magento\Integration\Model\ResourceModel\Integration\CollectionFactory;
  *
  * @phpstan-import-type IntegrationRow from IntegrationDirectoryInterface
  */
-class IntegrationDirectory implements IntegrationDirectoryInterface
+class IntegrationDirectory implements IntegrationDirectoryInterface, IntegrationVerdictsInterface
 {
     private const ENDPOINT_RESOURCE = 'Hryvinskyi_McpServer::access';
     private const ALL_RESOURCES = 'Magento_Backend::all';
@@ -47,12 +49,14 @@ class IntegrationDirectory implements IntegrationDirectoryInterface
      * @param AclRetriever $aclRetriever
      * @param AclBuilder $aclBuilder
      * @param AccessTokenReaderInterface $accessTokens
+     * @param IntegrationVerdictFactory $verdictFactory
      */
     public function __construct(
         private readonly CollectionFactory $integrations,
         private readonly AclRetriever $aclRetriever,
         private readonly AclBuilder $aclBuilder,
-        private readonly AccessTokenReaderInterface $accessTokens
+        private readonly AccessTokenReaderInterface $accessTokens,
+        private readonly IntegrationVerdictFactory $verdictFactory
     ) {
     }
 
@@ -69,7 +73,7 @@ class IntegrationDirectory implements IntegrationDirectoryInterface
                 $rows[] = [
                     'id' => $this->idOf($integration),
                     'name' => $this->nameOf($integration),
-                    'readiness' => $this->readinessOfIntegration($integration),
+                    'readiness' => $this->verdictOn($integration)->getReadiness(),
                 ];
             }
         } finally {
@@ -87,10 +91,8 @@ class IntegrationDirectory implements IntegrationDirectoryInterface
 
     /**
      * @inheritDoc
-     *
-     * @throws LocalizedException When the integration's ACL cannot be read
      */
-    public function readinessOf(int $integrationId): ?IntegrationReadiness
+    public function verdictOf(int $integrationId): ?IntegrationVerdict
     {
         $collection = $this->integrations->create()->addFieldToFilter(Integration::ID, ['eq' => $integrationId]);
         $integration = $collection->getFirstItem();
@@ -99,38 +101,41 @@ class IntegrationDirectory implements IntegrationDirectoryInterface
         }
 
         try {
-            return $this->readinessOfIntegration($integration);
+            return $this->verdictOn($integration);
         } finally {
             $this->aclBuilder->resetRuntimeAcl();
         }
     }
 
     /**
-     * The readiness of one loaded integration, reading its ACL and its token only as far as needed
+     * The verdict on one loaded integration, reading its ACL and its token only as far as needed
      *
      * The checks run in the order of precedence and stop at the first that fails: the status first (to be
      * re-authorised, or not active), then the ACL, then the token. So the ACL of an integration that is not active is
      * never read, and neither is the token of one whose ACL keeps it from the endpoint.
      *
      * @param DataObject $integration
-     * @return IntegrationReadiness
+     * @return IntegrationVerdict
      * @throws LocalizedException When the integration's ACL cannot be read
      */
-    private function readinessOfIntegration(DataObject $integration): IntegrationReadiness
+    private function verdictOn(DataObject $integration): IntegrationVerdict
     {
         $status = $this->intOf($integration, Integration::STATUS);
         if ($status === Integration::STATUS_RECREATED) {
-            return IntegrationReadiness::NeedsReauthorisation;
+            return $this->verdictFactory->create(['readiness' => IntegrationReadiness::NeedsReauthorisation]);
         }
         if ($status !== Integration::STATUS_ACTIVE) {
-            return IntegrationReadiness::Inactive;
+            return $this->verdictFactory->create(['readiness' => IntegrationReadiness::Inactive]);
         }
         if (!$this->hasEndpointAccess($this->idOf($integration))) {
-            return IntegrationReadiness::NoEndpointAccess;
+            return $this->verdictFactory->create(['readiness' => IntegrationReadiness::NoEndpointAccess]);
         }
         $token = $this->accessTokens->usableTokenOf($this->intOf($integration, Integration::CONSUMER_ID));
+        if ($token === null) {
+            return $this->verdictFactory->create(['readiness' => IntegrationReadiness::NoToken]);
+        }
 
-        return $token !== null ? IntegrationReadiness::Ready : IntegrationReadiness::NoToken;
+        return $this->verdictFactory->create(['readiness' => IntegrationReadiness::Ready, 'usableToken' => $token]);
     }
 
     /**

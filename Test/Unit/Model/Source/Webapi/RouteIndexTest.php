@@ -119,33 +119,33 @@ class RouteIndexTest extends TestCase
 
     public function testASelfRouteIsSkippedAndAnAnonymousOneKept(): void
     {
-        $customers = 'Magento\Customer\Api\CustomerRepositoryInterface';
+        $buyers = 'Acme\Shop\Api\BuyerRepositoryInterface';
         $routes = $this->index([
-            '/V1/customers/me' => ['GET' => FakeWebapiConfig::route($customers, 'getById', ['self'])],
-            '/V1/directory/countries' => ['GET' => FakeWebapiConfig::route(
-                'Magento\Directory\Api\CountryInformationAcquirerInterface',
+            '/V1/acme/buyers/me' => ['GET' => FakeWebapiConfig::route($buyers, 'getById', ['self'])],
+            '/V1/acme/countries' => ['GET' => FakeWebapiConfig::route(
+                'Acme\Geo\Api\CountryInformationInterface',
                 'getCountriesInfo',
                 ['anonymous']
             )],
         ])->routes();
 
-        self::assertSame(['/V1/directory/countries'], $this->urls($routes));
+        self::assertSame(['/V1/acme/countries'], $this->urls($routes));
         self::assertSame(['anonymous'], $routes[0]->getAclResources());
     }
 
     public function testASelfRouteNeverWinsOverTheAdminRouteOfTheSameMethod(): void
     {
-        $customers = 'Magento\Customer\Api\CustomerRepositoryInterface';
+        $buyers = 'Acme\Shop\Api\BuyerRepositoryInterface';
         $routes = $this->index([
-            '/V1/customers/me' => ['GET' => FakeWebapiConfig::route($customers, 'getById', ['self'])],
-            '/V1/customers/:customerId' => ['GET' => FakeWebapiConfig::route(
-                $customers,
+            '/V1/acme/buyers/me' => ['GET' => FakeWebapiConfig::route($buyers, 'getById', ['self'])],
+            '/V1/acme/buyers/:buyerId' => ['GET' => FakeWebapiConfig::route(
+                $buyers,
                 'getById',
-                ['Magento_Customer::customer']
+                ['Acme_Shop::buyer']
             )],
         ])->routes();
 
-        self::assertSame(['/V1/customers/:customerId'], $this->urls($routes));
+        self::assertSame(['/V1/acme/buyers/:buyerId'], $this->urls($routes));
     }
 
     public function testAnExcludedServiceIsSkipped(): void

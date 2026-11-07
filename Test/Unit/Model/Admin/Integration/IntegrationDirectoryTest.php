@@ -12,7 +12,10 @@ namespace Hryvinskyi\McpServer\Test\Unit\Model\Admin\Integration;
 use Hryvinskyi\McpServer\Model\Admin\Integration\AccessTokenReader;
 use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectory;
 use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationReadiness;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdict;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdictFactory;
 use Hryvinskyi\McpServer\Test\Unit\Fake\BuildsTokenModels;
+use Hryvinskyi\McpServer\Test\Unit\Fake\ConstructingObjectManager;
 use Magento\Authorization\Model\Acl\AclRetriever;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\Framework\Acl\Builder as AclBuilder;
@@ -28,8 +31,9 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * How the directory maps what Magento stores about an integration to its readiness, and that it gives the request
- * its ACL back after reading an integration's
+ * How the directory maps what Magento stores about an integration to its readiness, that the verdict on one
+ * integration carries exactly the token that made it ready, and that the request gets its ACL back after reading an
+ * integration's
  *
  * Magento's collaborators are doubles here, so these tests prove the mapping only; the integration test proves the
  * rule against Magento's real ACL.
@@ -65,9 +69,16 @@ class IntegrationDirectoryTest extends TestCase
      */
     private array $tokenReadFor = [];
 
+    /**
+     * How many integration collections were created, one per read of the integration table
+     *
+     * @var int
+     */
+    private int $collectionsCreated = 0;
+
     public function testAnActiveIntegrationThatMayUseTheEndpointAndHasATokenIsReady(): void
     {
-        $this->resources[1] = ['Magento_Catalog::products', self::ACCESS];
+        $this->resources[1] = ['Acme_Shop::products', self::ACCESS];
         $this->tokens[11] = $this->tokenModel(self::TOKEN, 0);
 
         self::assertSame(IntegrationReadiness::Ready, $this->readinessOf($this->integration(1, 'A', 1, 11)));
@@ -106,7 +117,7 @@ class IntegrationDirectoryTest extends TestCase
 
     public function testResourcesWithoutTheEndpointsMeanNoEndpointAccess(): void
     {
-        $this->resources[1] = ['Magento_Catalog::products'];
+        $this->resources[1] = ['Acme_Shop::products'];
         $this->tokens[11] = $this->tokenModel(self::TOKEN, 0);
 
         self::assertSame(IntegrationReadiness::NoEndpointAccess, $this->readinessOf($this->integration(1, 'A', 1, 11)));
@@ -162,7 +173,7 @@ class IntegrationDirectoryTest extends TestCase
 
     public function testNoEndpointAccessWinsOverNoTokenAndTheTokenIsNotRead(): void
     {
-        $this->resources[1] = ['Magento_Catalog::products'];
+        $this->resources[1] = ['Acme_Shop::products'];
 
         self::assertSame(IntegrationReadiness::NoEndpointAccess, $this->readinessOf($this->integration(1, 'A', 1, 11)));
         self::assertSame([[1], []], [$this->aclReadFor, $this->tokenReadFor]);
@@ -178,9 +189,35 @@ class IntegrationDirectoryTest extends TestCase
         self::assertSame([[1], [11]], [$this->aclReadFor, $this->tokenReadFor]);
     }
 
+    public function testTheVerdictOnAReadyIntegrationCarriesTheTokenItReadOnce(): void
+    {
+        $this->resources[1] = [self::ACCESS];
+        $this->tokens[11] = $this->tokenModel(self::TOKEN, 0);
+
+        $verdict = $this->directory([$this->integration(1, 'A', 1, 11)], 1)->verdictOf(1);
+
+        self::assertInstanceOf(IntegrationVerdict::class, $verdict);
+        self::assertSame(IntegrationReadiness::Ready, $verdict->getReadiness());
+        self::assertSame(self::TOKEN, $verdict->getUsableToken());
+        self::assertSame([11], $this->tokenReadFor, 'The token is read once');
+        self::assertSame(1, $this->collectionsCreated, 'The integration is read once');
+    }
+
+    public function testTheVerdictOnAnIntegrationThatIsNotReadyCarriesNoToken(): void
+    {
+        $this->resources[1] = ['Acme_Shop::products'];
+        $this->tokens[11] = $this->tokenModel(self::TOKEN, 0);
+
+        $verdict = $this->directory([$this->integration(1, 'A', 1, 11)], 1)->verdictOf(1);
+
+        self::assertInstanceOf(IntegrationVerdict::class, $verdict);
+        self::assertSame(IntegrationReadiness::NoEndpointAccess, $verdict->getReadiness());
+        self::assertNull($verdict->getUsableToken());
+    }
+
     public function testTheListingHoldsIdNameAndReadinessSortedByNameWhateverTheCase(): void
     {
-        $this->resources = [1 => [self::ACCESS], 2 => [self::ACCESS], 3 => ['Magento_Catalog::products']];
+        $this->resources = [1 => [self::ACCESS], 2 => [self::ACCESS], 3 => ['Acme_Shop::products']];
         $this->tokens = [11 => $this->tokenModel(self::TOKEN, 0), 33 => $this->tokenModel(self::TOKEN, 0)];
 
         $rows = $this->directory(
@@ -230,7 +267,7 @@ class IntegrationDirectoryTest extends TestCase
     {
         $this->resources[1] = [self::ACCESS];
 
-        $this->directory([$this->integration(1, 'A', 1, 11)], 1)->readinessOf(1);
+        $this->directory([$this->integration(1, 'A', 1, 11)], 1)->verdictOf(1);
     }
 
     public function testTheRequestsAclIsResetAfterOneIntegrationsReadinessAlsoWhenReadingItsAclFails(): void
@@ -238,17 +275,17 @@ class IntegrationDirectoryTest extends TestCase
         $directory = $this->directory([$this->integration(1, 'A', 1, 11)], 1, 1);
 
         $this->expectException(LocalizedException::class);
-        $directory->readinessOf(1);
+        $directory->verdictOf(1);
     }
 
     public function testAnUnknownIntegrationHasNoReadinessAndNothingIsRead(): void
     {
-        self::assertNull($this->directory([$this->integration(1, 'A', 1, 11)], 0)->readinessOf(9));
+        self::assertNull($this->directory([$this->integration(1, 'A', 1, 11)], 0)->verdictOf(9));
         self::assertSame([], $this->aclReadFor);
     }
 
     /**
-     * The readiness of the one integration, read through readinessOf()
+     * The readiness of the one integration, read through verdictOf()
      *
      * @param DataObject $integration
      * @return IntegrationReadiness|null
@@ -258,7 +295,7 @@ class IntegrationDirectoryTest extends TestCase
         $id = $integration->getData(Integration::ID);
         self::assertIsInt($id);
 
-        return $this->directory([$integration], 1)->readinessOf($id);
+        return $this->directory([$integration], 1)->verdictOf($id)?->getReadiness();
     }
 
     /**
@@ -292,7 +329,11 @@ class IntegrationDirectoryTest extends TestCase
     {
         /** @var CollectionFactory&MockObject $factory */
         $factory = $this->createMock(CollectionFactory::class);
-        $factory->method('create')->willReturnCallback(fn (): Collection => $this->collection($integrations));
+        $factory->method('create')->willReturnCallback(function () use ($integrations): Collection {
+            $this->collectionsCreated++;
+
+            return $this->collection($integrations);
+        });
 
         /** @var AclRetriever&MockObject $aclRetriever */
         $aclRetriever = $this->createMock(AclRetriever::class);
@@ -327,7 +368,15 @@ class IntegrationDirectoryTest extends TestCase
             }
         );
 
-        return new IntegrationDirectory($factory, $aclRetriever, $aclBuilder, new AccessTokenReader($oauth));
+        return new IntegrationDirectory(
+            $factory,
+            $aclRetriever,
+            $aclBuilder,
+            new AccessTokenReader($oauth),
+            new IntegrationVerdictFactory(
+                new ConstructingObjectManager([IntegrationVerdict::class => IntegrationVerdict::class])
+            )
+        );
     }
 
     /**

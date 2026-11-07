@@ -396,11 +396,11 @@ class ProtocolKit
                     ['Magento_Backend::stores_settings', 'Magento_Config::config']
                 ),
                 new Ability(
-                    'directory.country_information_acquirer.get_countries_info',
+                    'acme_geo.country_information.get_countries_info',
                     'Countries',
-                    'Magento_Directory',
+                    'Acme_Geo',
                     'webapi',
-                    'GET /V1/directory/countries',
+                    'GET /V1/acme/countries',
                     AbilityAccess::Read,
                     ['anonymous']
                 ),

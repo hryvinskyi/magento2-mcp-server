@@ -31,15 +31,15 @@ class FakeAclResources implements ProviderInterface
                         ]],
                     ]],
                 ]],
-                ['id' => 'Magento_Sales::sales', 'title' => 'Sales', 'children' => [
-                    ['id' => 'Magento_Sales::actions_view', 'title' => 'View', 'children' => []],
+                ['id' => 'Acme_Shop::sales', 'title' => 'Sales', 'children' => [
+                    ['id' => 'Acme_Shop::actions_view', 'title' => 'View', 'children' => []],
                 ]],
                 ['id' => 'Magento_Backend::stores', 'title' => 'Stores', 'children' => [
                     ['id' => 'Magento_Backend::stores_settings', 'title' => 'Settings', 'children' => [
                         ['id' => 'Magento_Config::config', 'title' => 'Configuration', 'children' => []],
                     ]],
-                    ['id' => 'Magento_InventoryApi::inventory', 'title' => 'Inventory', 'children' => [
-                        ['id' => 'Magento_InventoryApi::source', 'title' => 'Sources', 'children' => []],
+                    ['id' => 'Acme_Stock::inventory', 'title' => 'Inventory', 'children' => [
+                        ['id' => 'Acme_Stock::source', 'title' => 'Sources', 'children' => []],
                     ]],
                 ]],
             ]],

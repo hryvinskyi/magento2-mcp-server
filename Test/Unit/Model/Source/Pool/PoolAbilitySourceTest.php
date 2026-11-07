@@ -51,7 +51,7 @@ class PoolAbilitySourceTest extends TestCase
     public function testAnItemBecomesAnAbilityOfThePoolWithItsOwnValues(): void
     {
         $source = $this->source([
-            self::QUOTE => new FakePoolAbility(self::QUOTE, ['Magento_Sales::sales'], AbilityAccess::Write),
+            self::QUOTE => new FakePoolAbility(self::QUOTE, ['Acme_Shop::sales'], AbilityAccess::Write),
         ]);
 
         $abilities = $this->listed($source);
@@ -66,7 +66,7 @@ class PoolAbilitySourceTest extends TestCase
         self::assertSame('Quotes a shipment for a destination.', $ability->getDescription());
         self::assertSame('Acme_Shipping', $ability->getCategory());
         self::assertSame(AbilityAccess::Write, $ability->getAccess());
-        self::assertSame(['Magento_Sales::sales'], $ability->getAclResources());
+        self::assertSame(['Acme_Shop::sales'], $ability->getAclResources());
         self::assertSame([], $this->logger->messages('warning'));
     }
 
@@ -119,8 +119,8 @@ class PoolAbilitySourceTest extends TestCase
         return [
             'a number' => [[42]],
             'null' => [[null]],
-            'a blank string' => [['Magento_Sales::sales', ' ']],
-            'a list' => [[['Magento_Sales::sales']]],
+            'a blank string' => [['Acme_Shop::sales', ' ']],
+            'a list' => [[['Acme_Shop::sales']]],
         ];
     }
 
@@ -149,7 +149,7 @@ class PoolAbilitySourceTest extends TestCase
     {
         $failing = $this->createStub(PoolAbilityInterface::class);
         $failing->method('getName')->willReturn('acme_shipping.rate_service.failing');
-        $failing->method('getAclResources')->willReturn(['Magento_Sales::sales']);
+        $failing->method('getAclResources')->willReturn(['Acme_Shop::sales']);
         $failing->method('getTitle')->willThrowException(new LocalizedException(__('The carrier answered no title.')));
         $erroring = $this->createStub(PoolAbilityInterface::class);
         $erroring->method('getName')->willThrowException(new \Error('Call to a member function on null'));
@@ -230,7 +230,7 @@ class PoolAbilitySourceTest extends TestCase
             self::QUOTE => new FakePoolAbility(self::QUOTE, ['Magento_Backend::stores']),
             'acme_shipping.rate_service.book' => new FakePoolAbility(
                 'acme_shipping.rate_service.book',
-                ['Magento_Backend::stores', 'Magento_Sales::sales']
+                ['Magento_Backend::stores', 'Acme_Shop::sales']
             ),
         ]);
         [$quote, $book] = $this->listed($source);
@@ -238,7 +238,7 @@ class PoolAbilitySourceTest extends TestCase
         self::assertTrue($source->isAllowed($quote));
         self::assertFalse($source->isAllowed($book));
         self::assertSame(
-            ['Magento_Backend::stores', 'Magento_Backend::stores', 'Magento_Sales::sales'],
+            ['Magento_Backend::stores', 'Magento_Backend::stores', 'Acme_Shop::sales'],
             $this->acl->asked
         );
     }

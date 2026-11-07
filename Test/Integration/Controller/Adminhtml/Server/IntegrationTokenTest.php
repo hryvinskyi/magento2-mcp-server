@@ -142,7 +142,7 @@ class IntegrationTokenTest extends AbstractBackendController
 
     public function testAnIntegrationWithoutTheEndpointsResourceIsRefusedWithoutItsToken(): void
     {
-        $integration = $this->createIntegration('mcp-test catalog only', ['Magento_Catalog::catalog']);
+        $integration = $this->createIntegration('mcp-test stores only', ['Magento_Backend::stores']);
 
         $this->assertRefused($integration, IntegrationReadiness::NoEndpointAccess);
     }

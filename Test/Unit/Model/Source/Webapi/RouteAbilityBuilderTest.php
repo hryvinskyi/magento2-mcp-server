@@ -139,7 +139,7 @@ class RouteAbilityBuilderTest extends TestCase
     public function testAClassThatCannotBeNamedIsLoggedAndSkipped(): void
     {
         $ability = $this->builder([])
-            ->build($this->route('GET', '/V1/orders', 'Acme\Shop\Model\OrderRepository', 'get'), 'webapi');
+            ->build($this->route('GET', '/V1/acme/orders', 'Acme\Shop\Model\OrderRepository', 'get'), 'webapi');
 
         self::assertNull($ability);
         self::assertStringContainsString('Acme\Shop\Model\OrderRepository', $this->logger->messages('warning')[0]);
@@ -148,7 +148,7 @@ class RouteAbilityBuilderTest extends TestCase
     public function testANameTheAbilityRefusesIsLoggedAndSkipped(): void
     {
         $ability = $this->builder([])
-            ->build($this->route('GET', '/V1/orders', 'Acme\Shop\Api\Order_Interface', 'get'), 'webapi');
+            ->build($this->route('GET', '/V1/acme/orders', 'Acme\Shop\Api\Order_Interface', 'get'), 'webapi');
 
         self::assertNull($ability);
         self::assertStringContainsString('acme_shop.order_.get', $this->logger->messages('warning')[0]);

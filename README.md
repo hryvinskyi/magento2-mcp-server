@@ -2,6 +2,8 @@
 
 Lets AI clients that speak the [Model Context Protocol](https://modelcontextprotocol.io) work with your store. The client finds and runs the operations of the store's Web API and GraphQL schema, as the admin user or integration it authenticates with.
 
+![The MCP Server page: the endpoint, the integration picker and one-step install](docs/images/connection.png)
+
 ## What it does
 
 - Serves MCP over HTTP at `POST /rest/all/V1/mcp`, on Magento's REST stack. Magento authenticates the caller and checks the ACL.
@@ -16,6 +18,11 @@ Lets AI clients that speak the [Model Context Protocol](https://modelcontextprot
   to download, links for Cursor and VS Code, a Claude Code command, and a configuration to copy for each client), and
   every ability with its exposure and why. You put abilities on the deny-list or ask for confirmation there, one by one
   or many at once.
+
+The page under Stores › MCP Server lists the store's sections, the areas of the admin panel, each with its abilities
+and a switch:
+
+![Sections with their ability counts and switches](docs/images/sections.png)
 
 ## Requirements
 

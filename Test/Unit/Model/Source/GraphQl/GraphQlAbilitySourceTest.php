@@ -218,7 +218,7 @@ class GraphQlAbilitySourceTest extends TestCase
             'Products',
             'GraphQL',
             'webapi',
-            'GET /V1/products',
+            'GET /V1/acme/products',
             AbilityAccess::Read,
             ['anonymous']
         );

@@ -11,7 +11,9 @@ namespace Hryvinskyi\McpServer\Test\Integration\Model\Http;
 
 use Hryvinskyi\McpServer\Api\AbilityOverrideRepositoryInterface;
 use Hryvinskyi\McpServer\Api\Data\AbilityOverrideInterface;
+use Hryvinskyi\McpServer\Model\AbilityInvoker;
 use Hryvinskyi\McpServer\Model\Config;
+use Hryvinskyi\McpServer\Model\Guard\CustomerPasswordHashGuard;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\AdminRoles;
 use Hryvinskyi\McpServer\Test\Integration\Http\McpEndpointClient;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\BlocksRealGraphQlClient;
@@ -31,6 +33,8 @@ use Magento\TestFramework\Fixture\AppIsolation;
 use Magento\TestFramework\Fixture\Config as ConfigFixture;
 use Magento\TestFramework\Fixture\DbIsolation;
 use Magento\TestFramework\Helper\Bootstrap;
+use Magento\TestFramework\ObjectManager;
+use PHPUnit\Framework\Attributes\After;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -40,6 +44,10 @@ use PHPUnit\Framework\TestCase;
  * The callers are two admins whose roles grant every resource. Their tokens are real bearer tokens, issued by the
  * store's token issuer and read back by Magento's own token user context. Each test runs in a fresh application,
  * because the REST response Magento shares keeps every exception it was given.
+ *
+ * The abilities a test calls are test abilities in the pool source, registered before the test's first request: a read
+ * anyone may call, which answers with a fixed list, and a write that needs this module's endpoint resource. Both
+ * record their calls, so a test also proves what never ran.
  */
 #[AppArea('webapi_rest')]
 #[AppIsolation(true)]
@@ -53,7 +61,12 @@ class McpEndpointTest extends TestCase
     private const ADMIN = 990201;
     private const OTHER_ADMIN = 990202;
     private const VERSION = '2025-06-18';
-    private const COUNTRIES = 'directory.country_information_acquirer.get_countries_info';
+    private const ANONYMOUS_READ = RecordingPoolAbility::ANONYMOUS_READ;
+
+    /**
+     * What every call of the anonymous read answers
+     */
+    private const ENTRIES = [['code' => 'first_entry'], ['code' => 'second_entry']];
 
     /**
      * @var McpEndpointClient
@@ -112,6 +125,7 @@ class McpEndpointTest extends TestCase
     #[ConfigFixture(Config::XML_PATH_EXPOSE_ANONYMOUS_ABILITIES, '1')]
     public function testASessionIsOpenedAndUsedForEveryMethodAndMetaTool(): void
     {
+        $read = $this->registerAnonymousRead();
         $opened = $this->client->post($this->request('initialize', [
             'protocolVersion' => self::VERSION,
             'capabilities' => (object) [],
@@ -140,14 +154,15 @@ class McpEndpointTest extends TestCase
             array_column($this->arrayAt($this->resultOf($tools), 'tools'), 'name')
         );
 
-        $discovered = $this->callTool($session, 'discover_abilities', ['query' => 'country']);
-        self::assertContains(
-            self::COUNTRIES,
+        $discovered = $this->callTool($session, 'discover_abilities', ['query' => 'anonymous_read']);
+        self::assertSame(
+            [self::ANONYMOUS_READ],
             array_column($this->arrayAt($this->structuredContentOf($discovered), 'abilities'), 'name')
         );
 
-        $countries = $this->callTool($session, 'execute_ability', ['name' => self::COUNTRIES]);
-        self::assertContains('US', $this->countryIdsOf($countries));
+        $entries = $this->callTool($session, 'execute_ability', ['name' => self::ANONYMOUS_READ]);
+        self::assertSame(self::ENTRIES, $this->listAnswerOf($entries));
+        self::assertCount(1, $read->calls);
 
         $batch = $this->client->post(
             '[' . $this->request('ping', null, 21) . ',' . $this->request('tools/list', null, 22) . ']',
@@ -186,60 +201,65 @@ class McpEndpointTest extends TestCase
     }
 
     /**
-     * The countries ability takes anonymous callers, which are not exposed either: the deny-list is the reason given
+     * The anonymous read takes anonymous callers, which are not exposed either: the deny-list is the reason given
      */
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
     public function testADenyListOverrideDeniesTheAbility(): void
     {
-        $this->override(self::COUNTRIES, true, false);
+        $read = $this->registerAnonymousRead();
+        $this->override(self::ANONYMOUS_READ, true, false);
         $session = $this->initialize();
 
-        $error = $this->errorOf($this->callTool($session, 'execute_ability', ['name' => self::COUNTRIES]));
+        $error = $this->errorOf($this->callTool($session, 'execute_ability', ['name' => self::ANONYMOUS_READ]));
 
         self::assertSame(-32003, $error['code']);
-        self::assertSame(['ability' => self::COUNTRIES, 'reason' => 'deny_list'], $error['data']);
+        self::assertSame(['ability' => self::ANONYMOUS_READ, 'reason' => 'deny_list'], $error['data']);
+        self::assertSame([], $read->calls, 'The denied read was not run.');
     }
 
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
     #[ConfigFixture(Config::XML_PATH_EXPOSE_ANONYMOUS_ABILITIES, '1')]
     public function testAConfirmOverrideRunsTheAbilityOnlyWithATokenForThatExactCallUsedOnce(): void
     {
-        $this->override(self::COUNTRIES, false, true);
+        $read = $this->registerAnonymousRead();
+        $this->override(self::ANONYMOUS_READ, false, true);
         $session = $this->initialize();
 
-        $unconfirmed = $this->callTool($session, 'execute_ability', ['name' => self::COUNTRIES]);
+        $unconfirmed = $this->callTool($session, 'execute_ability', ['name' => self::ANONYMOUS_READ]);
         self::assertSame(200, $unconfirmed->getStatusCode());
         $token = $this->confirmationTokenOf($unconfirmed);
+        self::assertSame([], $read->calls, 'An unconfirmed call does not run.');
 
         $confirmed = $this->callTool(
             $session,
             'execute_ability',
-            ['name' => self::COUNTRIES, 'confirmationToken' => $token]
+            ['name' => self::ANONYMOUS_READ, 'confirmationToken' => $token]
         );
         self::assertFalse($this->resultOf($confirmed)['isError']);
-        self::assertContains('US', $this->countryIdsOf($confirmed));
+        self::assertSame(self::ENTRIES, $this->listAnswerOf($confirmed));
 
         $replayed = $this->callTool(
             $session,
             'execute_ability',
-            ['name' => self::COUNTRIES, 'confirmationToken' => $token]
+            ['name' => self::ANONYMOUS_READ, 'confirmationToken' => $token]
         );
         $freshToken = $this->confirmationTokenOf($replayed);
         self::assertNotSame($token, $freshToken, 'A used token confirms nothing, and a new one is handed out.');
 
         $otherArguments = $this->callTool($session, 'execute_ability', [
-            'name' => self::COUNTRIES,
-            'arguments' => ['storeId' => 1],
+            'name' => self::ANONYMOUS_READ,
+            'arguments' => ['record' => ['code' => 'other_arguments']],
             'confirmationToken' => $freshToken,
         ]);
         self::assertNotSame($freshToken, $this->confirmationTokenOf($otherArguments));
 
-        $flag = $this->callTool($session, 'execute_ability', ['name' => self::COUNTRIES, 'confirm' => true]);
+        $flag = $this->callTool($session, 'execute_ability', ['name' => self::ANONYMOUS_READ, 'confirm' => true]);
         $result = $this->resultOf($flag);
         self::assertTrue($result['isError']);
         $text = $this->arrayAt($this->arrayAt($result, 'content'), 0)['text'] ?? null;
         self::assertIsString($text);
         self::assertStringContainsString('confirmationToken', $text);
+        self::assertCount(1, $read->calls, 'Only the call confirmed by a token for it ran.');
     }
 
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
@@ -359,45 +379,59 @@ class McpEndpointTest extends TestCase
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
     public function testAnAbilityAnyoneMayCallIsDeniedAfterInstall(): void
     {
+        $read = $this->registerAnonymousRead();
         $session = $this->initialize();
 
-        $error = $this->errorOf($this->callTool($session, 'execute_ability', ['name' => self::COUNTRIES]));
+        $error = $this->errorOf($this->callTool($session, 'execute_ability', ['name' => self::ANONYMOUS_READ]));
 
         self::assertSame(-32003, $error['code']);
-        self::assertSame(['ability' => self::COUNTRIES, 'reason' => 'anonymous_ability'], $error['data']);
+        self::assertSame(['ability' => self::ANONYMOUS_READ, 'reason' => 'anonymous_ability'], $error['data']);
+        self::assertSame([], $read->calls, 'The denied read was not run.');
     }
 
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
     #[ConfigFixture(Config::XML_PATH_EXPOSE_ANONYMOUS_ABILITIES, '1')]
     public function testAnAbilityAnyoneMayCallRunsOnceTheSettingExposesIt(): void
     {
+        $read = $this->registerAnonymousRead();
         $session = $this->initialize();
 
-        $countries = $this->callTool($session, 'execute_ability', ['name' => self::COUNTRIES]);
+        $entries = $this->callTool($session, 'execute_ability', ['name' => self::ANONYMOUS_READ]);
 
-        self::assertContains('US', $this->countryIdsOf($countries));
+        self::assertSame(self::ENTRIES, $this->listAnswerOf($entries));
+        self::assertCount(1, $read->calls);
     }
 
+    /**
+     * The invoker's guard pool, as the container wires it, holds the password-hash guard. Here that guard is built for
+     * the test write; the name it guards as wired is proven by the guard's own integration test.
+     */
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
     #[ConfigFixture(Config::XML_PATH_READ_ONLY_MODE, '0')]
-    public function testACustomerSaveCarryingAPasswordHashIsRefusedByTheArgumentGuard(): void
+    public function testASaveCarryingAPasswordHashIsRefusedByTheArgumentGuardAndNeverRuns(): void
     {
+        $save = $this->registerTestSaveAbility();
+        $this->guardPasswordHashesOf(RecordingPoolAbility::SAVE);
         $session = $this->initialize();
-        $ability = 'customer.customer_repository.save';
+        $record = ['code' => 'mcp-end-to-end-guard'];
 
         $error = $this->errorOf($this->callTool($session, 'execute_ability', [
-            'name' => $ability,
-            'arguments' => [
-                'customerId' => 1,
-                'customer' => ['email' => 'mcp-guard@example.com', 'firstname' => 'Guard', 'lastname' => 'Test'],
-                'passwordHash' => 'a hash chosen by the client',
-            ],
+            'name' => RecordingPoolAbility::SAVE,
+            'arguments' => ['record' => $record, 'passwordHash' => 'a hash chosen by the client'],
         ]));
 
         self::assertSame(-32003, $error['code']);
-        self::assertSame(['ability' => $ability, 'reason' => 'argument_guard'], $error['data']);
+        self::assertSame(['ability' => RecordingPoolAbility::SAVE, 'reason' => 'argument_guard'], $error['data']);
         self::assertIsString($error['message']);
         self::assertStringStartsWith('Passwords are never set through MCP', $error['message']);
+        self::assertSame([], $save->calls, 'The refused save was not run.');
+
+        $saved = $this->callTool($session, 'execute_ability', [
+            'name' => RecordingPoolAbility::SAVE,
+            'arguments' => ['record' => $record],
+        ]);
+        self::assertSame(['saved' => ['record' => $record]], $this->structuredContentOf($saved));
+        self::assertSame([['record' => $record]], $save->calls, 'The same save without a hash runs.');
     }
 
     #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
@@ -616,7 +650,7 @@ class McpEndpointTest extends TestCase
     }
 
     /**
-     * The confirmation token of a -32004 answer, which names the countries ability
+     * The confirmation token of a -32004 answer, which names the anonymous read
      *
      * @param RestResponse $response
      * @return string
@@ -626,7 +660,7 @@ class McpEndpointTest extends TestCase
         $error = $this->errorOf($response);
         self::assertSame(-32004, $error['code'], $response->getBody());
         $data = $this->arrayAt($error, 'data');
-        self::assertSame(self::COUNTRIES, $data['ability']);
+        self::assertSame(self::ANONYMOUS_READ, $data['ability']);
         $token = $data['confirmationToken'] ?? null;
         self::assertIsString($token);
         self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $token);
@@ -635,14 +669,72 @@ class McpEndpointTest extends TestCase
     }
 
     /**
-     * The ids of the countries a successful call of the countries ability returned
+     * The list a successful call of an ability returned, which the structured content holds under `result`
      *
      * @param RestResponse $response
-     * @return list<mixed>
+     * @return array<mixed>
      */
-    private function countryIdsOf(RestResponse $response): array
+    private function listAnswerOf(RestResponse $response): array
     {
-        return array_column($this->arrayAt($this->structuredContentOf($response), 'result'), 'id');
+        return $this->arrayAt($this->structuredContentOf($response), 'result');
+    }
+
+    /**
+     * Register the anonymous read as the only test ability: read access, `anonymous` as its only ACL resource
+     *
+     * @return RecordingPoolAbility
+     */
+    private function registerAnonymousRead(): RecordingPoolAbility
+    {
+        $this->registerTestAbilities([self::ANONYMOUS_READ => [
+            'title' => 'List the open test entries',
+            'access' => 'read',
+            'aclResources' => ['anonymous'],
+            'answer' => self::ENTRIES,
+        ]]);
+
+        return $this->testAbility(self::ANONYMOUS_READ);
+    }
+
+    /**
+     * Make the shared password-hash guard, which the invoker's guard pool resolves, one that guards this ability
+     *
+     * The invoker is dropped as well, so the next one is built over this guard. Call it before the first request.
+     *
+     * @param string $ability
+     * @return void
+     */
+    private function guardPasswordHashesOf(string $ability): void
+    {
+        $objectManager = $this->objectManager();
+        $guard = $objectManager->create(CustomerPasswordHashGuard::class, ['ability' => $ability]);
+        self::assertInstanceOf(CustomerPasswordHashGuard::class, $guard);
+        $objectManager->removeSharedInstance(AbilityInvoker::class);
+        $objectManager->addSharedInstance($guard, CustomerPasswordHashGuard::class);
+    }
+
+    /**
+     * Drop the shared guard and the invoker built over it, so the next test builds both from di.xml
+     *
+     * @return void
+     */
+    #[After]
+    protected function forgetPasswordHashGuard(): void
+    {
+        $objectManager = $this->objectManager();
+        $objectManager->removeSharedInstance(CustomerPasswordHashGuard::class);
+        $objectManager->removeSharedInstance(AbilityInvoker::class);
+    }
+
+    /**
+     * @return ObjectManager
+     */
+    private function objectManager(): ObjectManager
+    {
+        $objectManager = Bootstrap::getObjectManager();
+        self::assertInstanceOf(ObjectManager::class, $objectManager);
+
+        return $objectManager;
     }
 
     /**

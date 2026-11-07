@@ -84,11 +84,11 @@ class JsonEncoderTest extends TestCase
         $session = $this->kit->openSession();
         $source = new FakeAbilitySource('webapi', [
             new Ability(
-                'directory.country_information_acquirer.get_countries_info',
+                'acme_geo.country_information.get_countries_info',
                 'Countries',
-                'Magento_Directory',
+                'Acme_Geo',
                 'webapi',
-                'GET /V1/directory/countries',
+                'GET /V1/acme/countries',
                 AbilityAccess::Read,
                 ['anonymous']
             ),
@@ -111,7 +111,7 @@ class JsonEncoderTest extends TestCase
 
         $answer = $this->kit->server([$tool])->handle(
             '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_ability_info",'
-            . '"arguments":{"name":"directory.country_information_acquirer.get_countries_info"}}}',
+            . '"arguments":{"name":"acme_geo.country_information.get_countries_info"}}}',
             $this->kit->context($session->getId())
         );
 

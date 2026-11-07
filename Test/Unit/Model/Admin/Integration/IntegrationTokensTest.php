@@ -10,10 +10,16 @@ declare(strict_types=1);
 namespace Hryvinskyi\McpServer\Test\Unit\Model\Admin\Integration;
 
 use Hryvinskyi\McpServer\Model\Admin\Integration\AccessTokenReaderInterface;
-use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectoryInterface;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationDirectory;
 use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationNotReadyException;
 use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationReadiness;
 use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationTokens;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdict;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdictFactory;
+use Hryvinskyi\McpServer\Model\Admin\Integration\IntegrationVerdictsInterface;
+use Hryvinskyi\McpServer\Test\Unit\Fake\ConstructingObjectManager;
+use Magento\Authorization\Model\Acl\AclRetriever;
+use Magento\Framework\Acl\Builder as AclBuilder;
 use Magento\Framework\DataObject;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
@@ -25,29 +31,58 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The token is handed out only when the directory, asked at that moment, says the integration is ready; otherwise the
- * token is never read
+ * The token handed out is the one the verdict taken at that moment found, and only for a ready integration
  */
 class IntegrationTokensTest extends TestCase
 {
     private const TOKEN = 'abcdefghijklmnopqrstuvwxyz012345';
 
-    public function testAReadyIntegrationsTokenIsReadForItsConsumer(): void
+    public function testOneTokenRequestLoadsTheIntegrationOnceAndReadsItsTokenOnce(): void
     {
+        /** @var Collection&MockObject $collection */
+        $collection = $this->createMock(Collection::class);
+        $collection->method('addFieldToFilter')->willReturnSelf();
+        $collection->method('getFirstItem')->willReturn(new DataObject([
+            Integration::ID => '5',
+            Integration::STATUS => (string) Integration::STATUS_ACTIVE,
+            Integration::CONSUMER_ID => '55',
+        ]));
+        /** @var CollectionFactory&MockObject $integrations */
+        $integrations = $this->createMock(CollectionFactory::class);
+        $integrations->expects(self::once())->method('create')->willReturn($collection);
+        /** @var AclRetriever&MockObject $acl */
+        $acl = $this->createMock(AclRetriever::class);
+        $acl->method('getAllowedResourcesByUser')->willReturn(['Hryvinskyi_McpServer::access']);
         /** @var AccessTokenReaderInterface&MockObject $reader */
         $reader = $this->createMock(AccessTokenReaderInterface::class);
         $reader->expects(self::once())->method('usableTokenOf')->with(55)->willReturn(self::TOKEN);
 
-        $token = $this->tokens(IntegrationReadiness::Ready, $reader)->tokenOf(5);
+        $directory = new IntegrationDirectory(
+            $integrations,
+            $acl,
+            $this->createMock(AclBuilder::class),
+            $reader,
+            new IntegrationVerdictFactory(
+                new ConstructingObjectManager([IntegrationVerdict::class => IntegrationVerdict::class])
+            )
+        );
+        $token = (new IntegrationTokens($directory))->tokenOf(5);
 
-        self::assertTrue(hash_equals(self::TOKEN, $token), 'The token of the integration\'s consumer is handed out');
+        self::assertTrue(hash_equals(self::TOKEN, $token), 'The token the verdict found is handed out');
     }
 
-    public function testAnUnknownIntegrationHasNoTokenAndNothingIsRead(): void
+    public function testAReadyIntegrationsTokenIsTheOneItsVerdictCarries(): void
+    {
+        $token = $this->tokens(new IntegrationVerdict(IntegrationReadiness::Ready, self::TOKEN))->tokenOf(5);
+
+        self::assertTrue(hash_equals(self::TOKEN, $token));
+    }
+
+    public function testAnUnknownIntegrationHasNoToken(): void
     {
         $this->expectException(NoSuchEntityException::class);
 
-        $this->tokens(null, $this->untouchedReader())->tokenOf(5);
+        $this->tokens(null)->tokenOf(5);
     }
 
     /**
@@ -68,11 +103,10 @@ class IntegrationTokensTest extends TestCase
      * @return void
      */
     #[DataProvider('notReady')]
-    public function testAnIntegrationThatIsNotReadyIsRefusedWithItsReasonAndItsTokenIsNeverRead(
-        IntegrationReadiness $readiness
-    ): void {
+    public function testAnIntegrationThatIsNotReadyIsRefusedWithItsReason(IntegrationReadiness $readiness): void
+    {
         try {
-            $this->tokens($readiness, $this->untouchedReader())->tokenOf(5);
+            $this->tokens(new IntegrationVerdict($readiness))->tokenOf(5);
             self::fail('A token was handed out for an integration that is not ready');
         } catch (IntegrationNotReadyException $exception) {
             self::assertInstanceOf(LocalizedException::class, $exception);
@@ -80,55 +114,18 @@ class IntegrationTokensTest extends TestCase
         }
     }
 
-    public function testATokenRevokedSinceTheReadinessWasReadIsRefusedAsNoToken(): void
-    {
-        /** @var AccessTokenReaderInterface&MockObject $reader */
-        $reader = $this->createMock(AccessTokenReaderInterface::class);
-        $reader->method('usableTokenOf')->willReturn(null);
-
-        $this->expectException(IntegrationNotReadyException::class);
-        $this->expectExceptionMessage(IntegrationReadiness::NoToken->reason()->render());
-
-        $this->tokens(IntegrationReadiness::Ready, $reader)->tokenOf(5);
-    }
-
     /**
-     * A token reader that must not be asked
+     * The tokens of integration 5, whose verdict is the one given, asked for exactly once
      *
-     * @return AccessTokenReaderInterface
-     */
-    private function untouchedReader(): AccessTokenReaderInterface
-    {
-        /** @var AccessTokenReaderInterface&MockObject $reader */
-        $reader = $this->createMock(AccessTokenReaderInterface::class);
-        $reader->expects(self::never())->method('usableTokenOf');
-
-        return $reader;
-    }
-
-    /**
-     * The tokens of integration 5, whose consumer is 55 and whose readiness the directory states as given
-     *
-     * @param IntegrationReadiness|null $readiness
-     * @param AccessTokenReaderInterface $reader
+     * @param IntegrationVerdict|null $verdict
      * @return IntegrationTokens
      */
-    private function tokens(?IntegrationReadiness $readiness, AccessTokenReaderInterface $reader): IntegrationTokens
+    private function tokens(?IntegrationVerdict $verdict): IntegrationTokens
     {
-        /** @var IntegrationDirectoryInterface&MockObject $directory */
-        $directory = $this->createMock(IntegrationDirectoryInterface::class);
-        $directory->expects(self::once())->method('readinessOf')->with(5)->willReturn($readiness);
+        /** @var IntegrationVerdictsInterface&MockObject $verdicts */
+        $verdicts = $this->createMock(IntegrationVerdictsInterface::class);
+        $verdicts->expects(self::once())->method('verdictOf')->with(5)->willReturn($verdict);
 
-        /** @var Collection&MockObject $collection */
-        $collection = $this->createMock(Collection::class);
-        $collection->method('addFieldToFilter')->with(Integration::ID, ['eq' => 5])->willReturnSelf();
-        $collection->method('getFirstItem')->willReturn(
-            new DataObject([Integration::ID => '5', Integration::CONSUMER_ID => '55'])
-        );
-        /** @var CollectionFactory&MockObject $factory */
-        $factory = $this->createMock(CollectionFactory::class);
-        $factory->method('create')->willReturn($collection);
-
-        return new IntegrationTokens($directory, $factory, $reader);
+        return new IntegrationTokens($verdicts);
     }
 }

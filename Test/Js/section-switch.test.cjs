@@ -27,7 +27,7 @@ const SWITCHED = {
     exposed: 22,
     sections: [
         {code: 'Magento_Backend::system', off: true, exposed: 0},
-        {code: 'Magento_Sales::sales', off: false, exposed: 22}
+        {code: 'Acme_Shop::sales', off: false, exposed: 22}
     ]
 };
 
@@ -84,7 +84,7 @@ test('every count is rounded down, the page\'s total as much as a section\'s', a
     const {switchSection} = switchOver(() => Promise.resolve(response(200, () => Promise.resolve({
         message: 'Done.',
         exposed: 22.9,
-        sections: [{code: 'Magento_Sales::sales', off: false, exposed: 21.5}]
+        sections: [{code: 'Acme_Shop::sales', off: false, exposed: 21.5}]
     }))));
 
     const result = plain(await switchSection(URL, FIELDS, null));

@@ -13,7 +13,7 @@ const {load} = require('./amd.cjs');
 const adminPost = load('Hryvinskyi_McpServer/js/admin-post');
 
 const URL = 'https://shop.example/admin/mcpserver/section/on/';
-const FIELDS = [['form_key', 'k3y'], ['section', 'Magento_Sales::sales']];
+const FIELDS = [['form_key', 'k3y'], ['section', 'Acme_Shop::sales']];
 
 /**
  * A copy made in this realm: the module's objects come from the AMD loader's context, whose prototypes differ

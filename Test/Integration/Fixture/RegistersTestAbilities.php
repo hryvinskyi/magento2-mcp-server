@@ -30,7 +30,7 @@ use Magento\TestFramework\ObjectManager;
 use PHPUnit\Framework\Attributes\After;
 
 /**
- * Test abilities in the pool source the container wires, for tests that must run, confirm or deny a write without
+ * Test abilities in the pool source the container wires, for tests that must run, confirm or deny a call without
  * depending on any store module
  *
  * registerTestAbilities() makes a pool source holding only the given RecordingPoolAbility items the shared one, and
@@ -53,7 +53,12 @@ trait RegistersTestAbilities
     /**
      * Make a pool source holding exactly these test abilities the one every catalog the container builds lists
      *
-     * @param array<string, array{title: string, access: string, aclResources: list<string>}> $abilities By name
+     * @param array<string, array{
+     *     title: string,
+     *     access: string,
+     *     aclResources: list<string>,
+     *     answer?: list<array<string, string>>
+     * }> $abilities By name; `answer` is what every call returns, the call's arguments under `saved` without it
      * @return void
      */
     protected function registerTestAbilities(array $abilities): void

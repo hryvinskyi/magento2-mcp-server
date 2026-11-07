@@ -23,7 +23,7 @@ use PHPUnit\Framework\TestCase;
 class HidePersonalDataTest extends TestCase
 {
     private const HIDDEN = '[personal data]';
-    private const ABILITY = 'sales.order_repository.get';
+    private const ABILITY = 'acme_shop.order_repository.get';
 
     public function testEveryValueUnderAPersonalKeyIsHiddenHoweverDeepAndTheRestIsKept(): void
     {
@@ -138,11 +138,11 @@ class HidePersonalDataTest extends TestCase
         return new Ability(
             self::ABILITY,
             'Get an order',
-            'Magento_Sales',
+            'Acme_Shop',
             'webapi',
-            'GET /V1/orders/:id',
+            'GET /V1/acme/orders/:id',
             AbilityAccess::Read,
-            ['Magento_Sales::actions_view']
+            ['Acme_Shop::actions_view']
         );
     }
 }

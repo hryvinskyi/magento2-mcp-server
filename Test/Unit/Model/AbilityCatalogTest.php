@@ -42,14 +42,14 @@ class AbilityCatalogTest extends TestCase
     public function testGetFindsAnAbilityOfAnySource(): void
     {
         $storeViews = $this->ability('store.store_repository.get_list', 'webapi');
-        $orders = $this->ability('sales.order_repository.get', 'other');
+        $orders = $this->ability('acme_shop.order_repository.get', 'other');
         $catalog = $this->catalog([
             'webapi' => new FakeAbilitySource('webapi', [$storeViews]),
             'other' => new FakeAbilitySource('other', [$orders]),
         ]);
 
         self::assertSame($storeViews, $catalog->get('store.store_repository.get_list'));
-        self::assertSame($orders, $catalog->get('sales.order_repository.get'));
+        self::assertSame($orders, $catalog->get('acme_shop.order_repository.get'));
     }
 
     public function testGetThrowsForAnUnknownName(): void
@@ -132,7 +132,7 @@ class AbilityCatalogTest extends TestCase
     public function testSchemaAndAclAreAskedOfTheOwningSource(): void
     {
         $allowed = $this->ability('store.store_repository.get', 'webapi');
-        $refused = $this->ability('sales.order_repository.get', 'other');
+        $refused = $this->ability('acme_shop.order_repository.get', 'other');
         $catalog = $this->catalog([
             'webapi' => new FakeAbilitySource('webapi', [$allowed], true),
             'other' => new FakeAbilitySource('other', [$refused], false),
@@ -165,8 +165,8 @@ class AbilityCatalogTest extends TestCase
         self::assertSame(5, $page->getTotal());
         self::assertSame(
             [
-                'directory.country_information_acquirer.get_countries_info',
-                'sales.order_repository.save',
+                'acme_geo.country_information.get_countries_info',
+                'acme_shop.order_repository.save',
                 'store.store_repository.delete_by_id',
                 'store.store_repository.get_list',
                 'store.website_repository.get',
@@ -181,10 +181,10 @@ class AbilityCatalogTest extends TestCase
     public static function queries(): array
     {
         return [
-            'a word of the name' => ['country', ['directory.country_information_acquirer.get_countries_info']],
-            'a word of the title, in another case' => ['ORDER', ['sales.order_repository.save']],
-            'a word of the category' => ['magento_directory', [
-                'directory.country_information_acquirer.get_countries_info',
+            'a word of the name' => ['country', ['acme_geo.country_information.get_countries_info']],
+            'a word of the title, in another case' => ['ORDER', ['acme_shop.order_repository.save']],
+            'a word of the category' => ['acme_geography', [
+                'acme_geo.country_information.get_countries_info',
             ]],
             'two words, both required' => ['view list', ['store.store_repository.get_list']],
             'two words from different fields' => ['magento_store delete', [
@@ -229,7 +229,7 @@ class AbilityCatalogTest extends TestCase
         $catalog = $this->searchableCatalog();
 
         self::assertSame(
-            ['sales.order_repository.save'],
+            ['acme_shop.order_repository.save'],
             $this->names($catalog->search('', null, AbilityAccess::Write, 100, 0))
         );
         self::assertSame(
@@ -258,7 +258,7 @@ class AbilityCatalogTest extends TestCase
         $beyond = $catalog->search('', null, null, 2, 10);
 
         self::assertSame(
-            ['directory.country_information_acquirer.get_countries_info', 'sales.order_repository.save'],
+            ['acme_geo.country_information.get_countries_info', 'acme_shop.order_repository.save'],
             $this->names($first)
         );
         self::assertSame(
@@ -310,10 +310,10 @@ class AbilityCatalogTest extends TestCase
         return $this->catalog([
             'webapi' => new FakeAbilitySource('webapi', [
                 $this->ability(
-                    'sales.order_repository.save',
+                    'acme_shop.order_repository.save',
                     'webapi',
                     'Save an order',
-                    'Magento_Sales',
+                    'Acme_Shop',
                     AbilityAccess::Write
                 ),
                 $this->ability('store.store_repository.get_list', 'webapi', 'Store view list', 'Magento_Store'),
@@ -327,10 +327,10 @@ class AbilityCatalogTest extends TestCase
             ]),
             'other' => new FakeAbilitySource('other', [
                 $this->ability(
-                    'directory.country_information_acquirer.get_countries_info',
+                    'acme_geo.country_information.get_countries_info',
                     'other',
                     'Countries',
-                    'Magento_Directory'
+                    'Acme_Geography'
                 ),
                 $this->ability('store.website_repository.get', 'other', 'One website', 'Magento_Store'),
             ]),

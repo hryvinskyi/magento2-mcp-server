@@ -42,9 +42,9 @@ class DiscoverAbilitiesTest extends TestCase
                 'total' => 3,
                 'abilities' => [
                     [
-                        'name' => 'directory.country_information_acquirer.get_countries_info',
+                        'name' => 'acme_geo.country_information.get_countries_info',
                         'title' => 'Countries',
-                        'category' => 'Magento_Directory',
+                        'category' => 'Acme_Geo',
                         'access' => 'read',
                         'exposure' => 'needs_confirmation',
                     ],
@@ -77,7 +77,7 @@ class DiscoverAbilitiesTest extends TestCase
         $paged = $tool->call(['limit' => 1, 'offset' => 1], $this->kit->callContext());
 
         self::assertSame(
-            ['directory.country_information_acquirer.get_countries_info'],
+            ['acme_geo.country_information.get_countries_info'],
             $this->names($byQuery['structuredContent'])
         );
         self::assertSame(['store.store_repository.save'], $this->names($byFilters['structuredContent']));

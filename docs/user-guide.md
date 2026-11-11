@@ -2,11 +2,11 @@
 title: MCP Server
 module: Hryvinskyi_McpServer
 doc-type: User Guide
-version: 1.4.2
+version: 1.5.0
 lede: Connect an AI assistant such as Claude to your store, and decide what it may read and change.
 magento: 2.4.6 - 2.4.9
 php: 8.1 - 8.5
-published: 2026-11-09
+published: 2026-11-11
 publisher: Hryvinskyi
 docs-url: github.com/hryvinskyi/magento2-mcp-server
 edition: Magento Open Source and Adobe Commerce
@@ -450,6 +450,10 @@ and receives the answer. The actions are the same operations Magento already off
 to a warehouse system. MCP Server calls them *abilities* and gives each a name, such as
 `catalog.product_repository.get_list` for listing products. The Ability catalog lists them all.
 
+Your store keeps the time of every order and change in UTC, while you count days in your store's own time zone. The
+assistant is told your store's time zone, from **Stores › Configuration › General › Locale Options › Timezone**, so
+*orders of yesterday* means yesterday in your store. If that setting is wrong, the assistant counts the wrong days.
+
 ## Who the assistant acts as
 
 The assistant signs in with an integration's access token and acts as that integration. Magento checks the
@@ -777,6 +781,7 @@ Table: Glossary
 | Version | Date | Changes |
 |--------|------------|----------------------------------------------------------|
 | 1.0 | 2026-11-09 | First version, for MCP Server 1.4.2. |
+| 1.1 | 2026-11-11 | For MCP Server 1.5.0: the assistant is told your store's time zone. |
 
 Table: Document history
 

@@ -2,11 +2,11 @@
 title: MCP Server
 module: Hryvinskyi_McpServer
 doc-type: Developer Guide
-version: 1.4.2
+version: 1.5.0
 lede: Install, connect, operate and extend the Model Context Protocol server of a Magento store.
 magento: 2.4.6 - 2.4.9
 php: 8.1 - 8.5
-published: 2026-11-09
+published: 2026-11-11
 publisher: Hryvinskyi
 docs-url: github.com/hryvinskyi/magento2-mcp-server
 edition: Magento Open Source and Adobe Commerce
@@ -139,7 +139,7 @@ curl -s -i https://<host>/rest/all/V1/mcp \
 
 `<host>` is the store's host name. Expected: HTTP status 200, a `mcp-session-id` header of 32 hexadecimal characters,
 and a body whose `result` holds `"protocolVersion":"2025-06-18"` and
-`"serverInfo":{"name":"Magento MCP Server","version":"1.4.2"}`.
+`"serverInfo":{"name":"Magento MCP Server","version":"1.5.0"}`.
 
 Call an ability in that session, with the session id from the header:
 
@@ -151,8 +151,8 @@ curl -s https://<host>/rest/all/V1/mcp \
   --data '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"execute_ability","arguments":{"name":"catalog.product_repository.get_list","arguments":{"searchCriteria":{"pageSize":5,"currentPage":1,"sortOrders":[{"field":"updated_at","direction":"DESC"}]}}}}}'
 ```
 
-Expected: a `result` whose `structuredContent` holds `items` (five products with their `sku` and `name`) and
-`total_count`. The most common failures of this first call:
+Expected: a `result` whose first `content` item is JSON text holding `items` (five products with their `sku` and
+`name`) and `total_count`. The most common failures of this first call:
 
 - HTTP 401: the bearer setting of step 2 is off, the token is wrong, or the integration lacks **Use the MCP
   endpoint**.
@@ -179,9 +179,15 @@ Abilities are not MCP tools themselves. The server offers three tools:
 |----|----------------|
 | `discover_abilities` | Searches abilities by words, `category` (a module name such as `Magento_Catalog`, or `GraphQL`) and `access` (`read`, `write`, `delete`); `limit` and `offset` page through them. It lists every ability, whatever the caller's role allows. |
 | `get_ability_info` | Describes one ability: its arguments (JSON Schema), its ACL resources, whether the caller holds them, its exposure, and whether personal data is hidden. |
-| `execute_ability` | Runs one ability with its `arguments`, and the `confirmationToken` when one was asked for. |
+| `execute_ability` | Runs one ability with its `arguments`, and the `confirmationToken` when one was asked for. `fields` keeps only the named fields of the result, as dot-separated paths such as `items.sku`; a field the result lacks is named in a note after it. |
 
 Table: The three tools
+
+The answer to `initialize` carries instructions for the model: how the three tools work together, that personal
+data arrives hidden while it does, and that timestamps such as `created_at` are UTC, with the time zone the store
+runs in (each store view's zone when they differ). The time zone is read from **General › Locale Options ›
+Timezone** of each store view. The parts are the `parts` pool of
+`Hryvinskyi\McpServer\Model\Protocol\Instruction\ServerInstructions`.
 
 ## What decides whether a call runs
 
@@ -732,6 +738,7 @@ Table: Data types (`Hryvinskyi\McpServer\Api\Data`)
 | `Model\Protocol\ProtocolVersions` | `versions` | the four of *Endpoint and protocol* | Protocol versions offered, newest first |
 | `Model\Stdio\StdioLoop` | `messageTimeoutSeconds`, `maxLineBytes` | `300`, `1048576` | How long one stdio message may run; the longest line read from the client |
 | `Model\Stdio\MessageHandler` | `maxMessageBytes` | `1048576` | The longest message one stdio process reads |
+| `Model\Protocol\Instruction\ServerInstructions` | `parts` | `abilityWorkflow`, `personalData`, `timeZone` | The parts of the instructions `initialize` gives, in order |
 
 Table: Configurable arguments
 
@@ -818,5 +825,6 @@ that need an action.
 | Version | Date | Changes |
 |--------|------------|----------------------------------------------------------|
 | 1.0 | 2026-11-09 | First version, for MCP Server 1.4.2. Replaces the earlier single user manual, now split into this guide and the User Guide. |
+| 1.1 | 2026-11-11 | For MCP Server 1.5.0: the instructions of `initialize` and their time zone, and `fields` of `execute_ability`. |
 
 Table: Document history

@@ -36,6 +36,10 @@ use Hryvinskyi\McpServer\Model\Protocol\JsonRpcResponses;
 use Hryvinskyi\McpServer\Model\Protocol\Message;
 use Hryvinskyi\McpServer\Model\Protocol\MessageFactory;
 use Hryvinskyi\McpServer\Model\Protocol\MessageParser;
+use Hryvinskyi\McpServer\Model\Protocol\Instruction\AbilityWorkflowInstruction;
+use Hryvinskyi\McpServer\Model\Protocol\Instruction\PersonalDataInstruction;
+use Hryvinskyi\McpServer\Model\Protocol\Instruction\ServerInstructions;
+use Hryvinskyi\McpServer\Model\Protocol\Instruction\TimeZoneInstruction;
 use Hryvinskyi\McpServer\Model\Protocol\Method\Initialize;
 use Hryvinskyi\McpServer\Model\Protocol\Method\Initialized;
 use Hryvinskyi\McpServer\Model\Protocol\Method\MethodHandlerInterface;
@@ -53,6 +57,7 @@ use Hryvinskyi\McpServer\Model\Protocol\Server;
 use Hryvinskyi\McpServer\Model\Protocol\SessionGate;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\ArgumentReader;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\ExecuteAbility;
+use Hryvinskyi\McpServer\Model\Protocol\Tool\ResultProjection;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\Outcome\ConfirmationAnswer;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\Outcome\DeniedAnswer;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\Outcome\FailedAnswer;
@@ -63,6 +68,7 @@ use Hryvinskyi\McpServer\Model\Protocol\Tool\ToolResults;
 use Hryvinskyi\McpServer\Model\Protocol\TransportContext;
 use Hryvinskyi\McpServer\Model\Section\AbilitySections;
 use Hryvinskyi\McpServer\Model\Session\Session;
+use Hryvinskyi\McpServer\Model\Store\StoreTimeZonesInterface;
 use Magento\Authorization\Model\UserContextInterface;
 use Magento\Framework\Module\PackageInfo;
 use PHPUnit\Framework\TestCase;
@@ -97,6 +103,11 @@ class ProtocolKit
     public PersonalDataPolicyInterface $personalDataPolicy;
 
     /**
+     * @var StoreTimeZonesInterface The store views' time zones; a test may replace them before it builds
+     */
+    public StoreTimeZonesInterface $storeTimeZones;
+
+    /**
      * @var ConstructingObjectManager
      */
     private ConstructingObjectManager $objectManager;
@@ -111,6 +122,7 @@ class ProtocolKit
         $this->logger = new RecordingLogger();
         $this->confirmations = new InMemoryConfirmationStore();
         $this->personalDataPolicy = new FakePersonalDataPolicy();
+        $this->storeTimeZones = new FixedStoreTimeZones();
         $this->objectManager = new ConstructingObjectManager([
             Reply::class => Reply::class,
             Message::class => Message::class,
@@ -176,7 +188,11 @@ class ProtocolKit
                     $this->clientFactory(),
                     $packageInfo,
                     $this->replyFactory(),
-                    $this->personalDataPolicy
+                    new ServerInstructions([
+                        'abilityWorkflow' => new AbilityWorkflowInstruction(),
+                        'personalData' => new PersonalDataInstruction($this->personalDataPolicy),
+                        'timeZone' => new TimeZoneInstruction($this->storeTimeZones),
+                    ])
                 ),
                 'notifications/initialized' => new Initialized($this->replyFactory()),
                 'ping' => new Ping($this->replyFactory()),
@@ -222,6 +238,48 @@ class ProtocolKit
     }
 
     /**
+     * The value a successful tool result carries, decoded from its JSON text, objects as arrays
+     *
+     * @param array<mixed> $result
+     * @return mixed
+     */
+    public function payload(array $result): mixed
+    {
+        return json_decode($this->text($result), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * The value a successful tool result carries, decoded from its JSON text, objects as objects, so an empty object
+     * stays one
+     *
+     * @param array<mixed> $result
+     * @return mixed
+     */
+    public function payloadObjects(array $result): mixed
+    {
+        return json_decode($this->text($result), false, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * The JSON text of a tool result, its first content item
+     *
+     * @param array<mixed> $result
+     * @return string
+     */
+    public function text(array $result): string
+    {
+        $content = $result['content'] ?? null;
+        TestCase::assertIsArray($content);
+        $first = $content[0] ?? null;
+        TestCase::assertIsArray($first);
+        TestCase::assertSame('text', $first['type'] ?? null);
+        $text = $first['text'] ?? null;
+        TestCase::assertIsString($text);
+
+        return $text;
+    }
+
+    /**
      * @return ToolResults
      */
     public function toolResults(): ToolResults
@@ -255,6 +313,7 @@ class ProtocolKit
             $this->argumentReader(),
             $toolResults,
             $this->confirmations,
+            new ResultProjection(),
             [
                 'succeeded' => new SucceededAnswer($toolResults),
                 'failed' => new FailedAnswer($toolResults),

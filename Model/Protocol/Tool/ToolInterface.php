@@ -50,7 +50,7 @@ interface ToolInterface
     public function getAnnotations(): array;
 
     /**
-     * Run the tool and give its MCP tool result (`content`, `structuredContent`, `isError`)
+     * Run the tool and give its MCP tool result (`content`, `isError`)
      *
      * @param array<string,mixed> $arguments
      * @param CallContext $context

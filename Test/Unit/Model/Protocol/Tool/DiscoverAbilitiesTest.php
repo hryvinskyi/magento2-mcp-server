@@ -64,7 +64,7 @@ class DiscoverAbilitiesTest extends TestCase
                     ],
                 ],
             ],
-            $result['structuredContent']
+            $this->kit->payload($result)
         );
     }
 
@@ -78,20 +78,22 @@ class DiscoverAbilitiesTest extends TestCase
 
         self::assertSame(
             ['acme_geo.country_information.get_countries_info'],
-            $this->names($byQuery['structuredContent'])
+            $this->names($this->kit->payload($byQuery))
         );
-        self::assertSame(['store.store_repository.save'], $this->names($byFilters['structuredContent']));
-        self::assertSame(['store.store_repository.get_list'], $this->names($paged['structuredContent']));
-        self::assertIsArray($paged['structuredContent']);
-        self::assertSame(3, $paged['structuredContent']['total']);
+        self::assertSame(['store.store_repository.save'], $this->names($this->kit->payload($byFilters)));
+        self::assertSame(['store.store_repository.get_list'], $this->names($this->kit->payload($paged)));
+        $page = $this->kit->payload($paged);
+        self::assertIsArray($page);
+        self::assertSame(3, $page['total']);
     }
 
     public function testAnEmptyCategoryOrAccessFiltersNothing(): void
     {
         $result = $this->tool()->call(['category' => '', 'access' => '', 'query' => null], $this->kit->callContext());
 
-        self::assertIsArray($result['structuredContent']);
-        self::assertSame(3, $result['structuredContent']['total']);
+        $page = $this->kit->payload($result);
+        self::assertIsArray($page);
+        self::assertSame(3, $page['total']);
     }
 
     /**

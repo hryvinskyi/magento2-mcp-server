@@ -11,6 +11,7 @@ namespace Hryvinskyi\McpServer\Model\Protocol\Tool;
 
 use Hryvinskyi\McpServer\Api\AbilityInvokerInterface;
 use Hryvinskyi\McpServer\Api\Data\ClientInterfaceFactory;
+use Hryvinskyi\McpServer\Api\Data\InvocationOutcome;
 use Hryvinskyi\McpServer\Api\Data\InvocationInterfaceFactory;
 use Hryvinskyi\McpServer\Model\Confirmation\ConfirmationStoreInterface;
 use Hryvinskyi\McpServer\Model\Protocol\CallContext;
@@ -31,6 +32,10 @@ use Magento\Framework\Exception\NoSuchEntityException;
  * call unconfirmed, so a call to an ability that needs a confirmation is answered with a fresh token. A client cannot
  * confirm a call by declaring it confirmed: a call that still sends the former `confirm` flag is a tool error that
  * explains the token.
+ *
+ * The `fields` of a call keep only those fields of a result that succeeded (see ResultProjection), so a list of
+ * products or orders reaches the model without the fields it did not ask for. A field the result does not have is
+ * named in a note after the result, never an error: the ability has already run, and a write must not be run twice.
  */
 class ExecuteAbility implements ToolInterface
 {
@@ -38,6 +43,7 @@ class ExecuteAbility implements ToolInterface
 
     private const ARGUMENT_TOKEN = 'confirmationToken';
     private const RETIRED_ARGUMENT_CONFIRM = 'confirm';
+    private const ARGUMENT_FIELDS = 'fields';
 
     /**
      * @param AbilityInvokerInterface $invoker
@@ -46,6 +52,7 @@ class ExecuteAbility implements ToolInterface
      * @param ArgumentReader $arguments
      * @param ToolResults $toolResults
      * @param ConfirmationStoreInterface $confirmations
+     * @param ResultProjection $projection
      * @param array<string,OutcomeAnswerInterface> $outcomeAnswers Answers keyed by the invocation outcome's value
      */
     public function __construct(
@@ -55,6 +62,7 @@ class ExecuteAbility implements ToolInterface
         private readonly ArgumentReader $arguments,
         private readonly ToolResults $toolResults,
         private readonly ConfirmationStoreInterface $confirmations,
+        private readonly ResultProjection $projection,
         private readonly array $outcomeAnswers = []
     ) {
     }
@@ -76,7 +84,7 @@ class ExecuteAbility implements ToolInterface
             . 'input schema get_ability_info gives. The store may deny the call (its deny-list, read-only mode or '
             . 'your role\'s ACL), or ask for a confirmation: then ask the user, and call again with the same name '
             . 'and arguments plus the confirmationToken the error carries. A token confirms that one call only, once, '
-            . 'within ten minutes.';
+            . 'within ten minutes. Results can be large: name the fields you need in fields, and ask for small pages.';
     }
 
     /**
@@ -95,6 +103,13 @@ class ExecuteAbility implements ToolInterface
                     'type' => 'object',
                     'default' => (object) [],
                     'description' => 'The ability\'s arguments, keyed by name, as its input schema describes them.',
+                ],
+                self::ARGUMENT_FIELDS => [
+                    'type' => 'array',
+                    'items' => ['type' => 'string'],
+                    'description' => 'Only these fields of the result, each a dot-separated path such as "items.sku" '
+                        . 'or "total_count". A path through a list keeps that field of every element. Without it, '
+                        . 'the whole result comes back.',
                 ],
                 self::ARGUMENT_TOKEN => [
                     'type' => 'string',
@@ -137,6 +152,7 @@ class ExecuteAbility implements ToolInterface
         $name = $this->arguments->requiredString($arguments, 'name');
         $abilityArguments = $this->arguments->object($arguments, 'arguments');
         $token = $this->arguments->optionalString($arguments, self::ARGUMENT_TOKEN);
+        $paths = $this->projection->paths($this->arguments->stringList($arguments, self::ARGUMENT_FIELDS));
         $session = $context->getSession();
         $sessionId = $session !== null ? $session->getId() : '';
 
@@ -168,6 +184,12 @@ class ExecuteAbility implements ToolInterface
             sprintf('No answer is registered for the invocation outcome "%s".', $outcome)
         );
 
-        return $answer->answer($invocation, $result);
+        $notes = [];
+        if ($paths !== [] && $result->getOutcome() === InvocationOutcome::Succeeded) {
+            $notes = $this->projection->misses($result->getValue(), $paths);
+            $result = $result->withValue($this->projection->project($result->getValue(), $paths));
+        }
+
+        return $this->toolResults->withNotes($answer->answer($invocation, $result), $notes);
     }
 }

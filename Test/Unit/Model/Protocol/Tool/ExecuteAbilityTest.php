@@ -24,6 +24,7 @@ use Hryvinskyi\McpServer\Model\Protocol\Exception\InvalidToolArgumentException;
 use Hryvinskyi\McpServer\Model\Protocol\Exception\JsonRpcErrorException;
 use Hryvinskyi\McpServer\Model\Protocol\JsonEncoder;
 use Hryvinskyi\McpServer\Model\Protocol\Tool\ExecuteAbility;
+use Hryvinskyi\McpServer\Model\Protocol\Tool\ResultProjection;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeInvoker;
 use Hryvinskyi\McpServer\Model\Session\Session;
 use Hryvinskyi\McpServer\Test\Unit\Fake\ProtocolKit;
@@ -87,36 +88,30 @@ class ExecuteAbilityTest extends TestCase
     }
 
     /**
-     * @return array<string, array{mixed, array<string, mixed>}>
+     * @return array<string, array{mixed, string}>
      */
     public static function values(): array
     {
         return [
-            'an object' => [['sku' => 'A1', 'qty' => 2.0], ['sku' => 'A1', 'qty' => 2.0]],
-            'a list' => [[['id' => 'US'], ['id' => 'FR']], ['result' => [['id' => 'US'], ['id' => 'FR']]]],
-            'a scalar' => [true, ['result' => true]],
-            'null' => [null, ['result' => null]],
-            'an empty array' => [[], ['result' => []]],
+            'an object' => [
+                ['sku' => 'A1', 'qty' => 2.0, 'url' => 'https://a/b'],
+                '{"sku":"A1","qty":2.0,"url":"https://a/b"}',
+            ],
+            'a list' => [[['id' => 'US'], ['id' => 'FR']], '[{"id":"US"},{"id":"FR"}]'],
+            'a scalar' => [true, 'true'],
+            'null' => [null, 'null'],
+            'an empty array' => [[], '[]'],
         ];
     }
 
-    /**
-     * @param mixed $value
-     * @param array<string,mixed> $structured
-     */
     #[DataProvider('values')]
-    public function testASucceededCallCarriesItsValueAsTextAndAsAnObject(mixed $value, array $structured): void
+    public function testASucceededCallCarriesItsValueOnceAsJsonText(mixed $value, string $text): void
     {
         $invoker = $this->invoker($this->invocationResult(InvocationOutcome::Succeeded)->withValue($value));
 
         $result = $this->tool($invoker)->call(['name' => self::NAME], $this->kit->callContext());
 
-        self::assertFalse($result['isError']);
-        self::assertSame($structured, $result['structuredContent']);
-        self::assertSame(
-            [['type' => 'text', 'text' => json_encode($structured, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR)]],
-            $result['content']
-        );
+        self::assertSame(['content' => [['type' => 'text', 'text' => $text]], 'isError' => false], $result);
     }
 
     public function testAFailedCallIsAToolErrorWithTheInvokersMessage(): void
@@ -336,6 +331,86 @@ class ExecuteAbilityTest extends TestCase
         self::assertFalse($schema['additionalProperties']);
     }
 
+    public function testTheInputSchemaTakesFieldsAsAListOfStrings(): void
+    {
+        $schema = $this->tool($this->confirmingInvoker())->getInputSchema();
+
+        self::assertIsArray($schema['properties']);
+        $fields = $this->arrayAt($schema['properties'], 'fields');
+        self::assertSame('array', $fields['type']);
+        self::assertSame(['type' => 'string'], $fields['items']);
+    }
+
+    public function testFieldsKeepOnlyTheNamedFieldsOfEveryListElement(): void
+    {
+        $invoker = $this->invoker($this->invocationResult(InvocationOutcome::Succeeded)->withValue([
+            'items' => [
+                ['sku' => 'A-1', 'name' => 'Alpha', 'price' => 10.5, 'media' => ['a.jpg']],
+                ['sku' => 'B-2', 'name' => 'Beta', 'price' => 20.0, 'media' => ['b.jpg']],
+            ],
+            'search_criteria' => ['page_size' => 2],
+            'total_count' => 7,
+        ]));
+
+        $result = $this->tool($invoker)->call(
+            ['name' => self::NAME, 'fields' => ['items.sku', 'items.price', 'total_count']],
+            $this->kit->callContext()
+        );
+
+        $expected = [
+            'items' => [['sku' => 'A-1', 'price' => 10.5], ['sku' => 'B-2', 'price' => 20.0]],
+            'total_count' => 7,
+        ];
+        self::assertFalse($result['isError']);
+        self::assertSame(
+            [['type' => 'text', 'text' => json_encode($expected, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR)]],
+            $result['content']
+        );
+    }
+
+    public function testAFieldTheResultLacksIsANoteAfterTheResultAndTheAbilityRunsOnce(): void
+    {
+        $invoker = $this->invoker($this->invocationResult(InvocationOutcome::Succeeded)->withValue([
+            'items' => [['sku' => 'A-1', 'price' => 10.5]],
+            'total_count' => 1,
+        ]));
+
+        $result = $this->tool($invoker)->call(
+            ['name' => self::NAME, 'fields' => ['items.sku', 'items.prices', 'count']],
+            $this->kit->callContext()
+        );
+
+        self::assertCount(1, $invoker->invocations);
+        self::assertFalse($result['isError']);
+        self::assertSame(
+            [
+                ['type' => 'text', 'text' => '{"items":[{"sku":"A-1"}]}'],
+                [
+                    'type' => 'text',
+                    'text' => 'The result has no field "items.prices". The fields under "items" are: sku, price.',
+                ],
+                [
+                    'type' => 'text',
+                    'text' => 'The result has no field "count". Its top-level fields are: items, total_count.',
+                ],
+            ],
+            $result['content']
+        );
+    }
+
+    public function testFieldsLeaveAFailedCallAsItIs(): void
+    {
+        $invoker = $this->invoker($this->invocationResult(InvocationOutcome::Failed, 'The SKU does not exist.'));
+
+        $result = $this->tool($invoker)->call(
+            ['name' => self::NAME, 'fields' => ['sku']],
+            $this->kit->callContext()
+        );
+
+        self::assertTrue($result['isError']);
+        self::assertSame([['type' => 'text', 'text' => 'The SKU does not exist.']], $result['content']);
+    }
+
     public function testAnUnknownAbilityIsAToolError(): void
     {
         $invoker = new FakeInvoker(static function (InvocationInterface $invocation): InvocationResultInterface {
@@ -359,6 +434,11 @@ class ExecuteAbilityTest extends TestCase
             'arguments a list' => [['name' => self::NAME, 'arguments' => [1, 2]], 'arguments'],
             'arguments a string' => [['name' => self::NAME, 'arguments' => '{"a":1}'], 'arguments'],
             'token a number' => [['name' => self::NAME, 'confirmationToken' => 7], 'confirmationToken'],
+            'fields a string' => [['name' => self::NAME, 'fields' => 'items.sku'], 'fields'],
+            'fields an object' => [['name' => self::NAME, 'fields' => ['a' => 'sku']], 'fields'],
+            'fields holding a number' => [['name' => self::NAME, 'fields' => ['sku', 7]], 'fields'],
+            'a field with an empty name' => [['name' => self::NAME, 'fields' => ['items..sku']], 'items..sku'],
+            'an empty field' => [['name' => self::NAME, 'fields' => ['']], ''],
         ];
     }
 
@@ -390,6 +470,7 @@ class ExecuteAbilityTest extends TestCase
             $this->kit->argumentReader(),
             $this->kit->toolResults(),
             $this->kit->confirmations,
+            new ResultProjection(),
             []
         );
 

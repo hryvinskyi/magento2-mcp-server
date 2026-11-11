@@ -6,6 +6,7 @@ parameters:
         - vendor (?)
     bootstrapFiles:
         - ../../../../vendor/autoload.php
+        - ../../../../dev/tests/integration/framework/autoload.php
     scanDirectories:
         - ../../../../generated/code
         - ../../../../dev/tests/integration/framework

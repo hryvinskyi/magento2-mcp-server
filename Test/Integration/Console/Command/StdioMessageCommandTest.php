@@ -323,7 +323,9 @@ class StdioMessageCommandTest extends TestCase
     {
         $result = $this->arrayAt($this->decode($envelope['body']), 'result');
         self::assertFalse($result['isError'] ?? null, $envelope['body']);
-        $stores = $this->arrayAt($result, 'structuredContent')['result'] ?? null;
+        $text = $this->arrayAt($this->arrayAt($result, 'content'), 0)['text'] ?? null;
+        self::assertIsString($text);
+        $stores = json_decode($text, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($stores);
         self::assertContains('admin', array_column($stores, 'code'));
         self::assertContains('default', array_column($stores, 'code'));

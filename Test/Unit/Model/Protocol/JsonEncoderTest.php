@@ -115,8 +115,13 @@ class JsonEncoderTest extends TestCase
             $this->kit->context($session->getId())
         );
 
-        self::assertStringContainsString('\"properties\":{}', $answer->getBody());
-        self::assertStringContainsString('"inputSchema":{"type":"object","properties":{}', $answer->getBody());
+        $body = json_decode($answer->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertIsArray($body['result']);
+        self::assertStringContainsString(
+            '"inputSchema":{"type":"object","properties":{}',
+            $this->kit->text($body['result'])
+        );
     }
 
     public function testInvalidUtf8IsReplacedInsteadOfFailing(): void

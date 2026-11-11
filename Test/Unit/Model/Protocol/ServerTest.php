@@ -25,6 +25,7 @@ use Hryvinskyi\McpServer\Model\Protocol\Server;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeInvoker;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakePersonalDataPolicy;
 use Hryvinskyi\McpServer\Test\Unit\Fake\FakeTool;
+use Hryvinskyi\McpServer\Test\Unit\Fake\FixedStoreTimeZones;
 use Hryvinskyi\McpServer\Test\Unit\Fake\ProtocolKit;
 use Magento\Authorization\Model\UserContextInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -92,6 +93,22 @@ class ServerTest extends TestCase
 
         self::assertStringContainsString('"[personal data]"', $hiding);
         self::assertStringNotContainsString('personal data', $this->instructions());
+    }
+
+    public function testTheInstructionsNameTheStoresTimeZoneAfterThePersonalData(): void
+    {
+        $this->kit->storeTimeZones = new FixedStoreTimeZones(['default' => 'America/Los_Angeles']);
+        $this->server = $this->kit->server();
+
+        $instructions = $this->instructions();
+
+        self::assertStringContainsString('are UTC', $instructions);
+        self::assertStringContainsString('This store runs in the time zone America/Los_Angeles.', $instructions);
+        self::assertGreaterThan(
+            (int) strpos($instructions, '"[personal data]"'),
+            (int) strpos($instructions, 'America/Los_Angeles')
+        );
+        self::assertStringStartsWith('Find the operations of this Magento store', $instructions);
     }
 
     public function testInitializeAnswersTheNewestVersionWhenTheRequestedOneIsUnsupported(): void

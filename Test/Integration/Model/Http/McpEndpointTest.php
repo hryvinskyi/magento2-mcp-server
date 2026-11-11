@@ -157,7 +157,7 @@ class McpEndpointTest extends TestCase
         $discovered = $this->callTool($session, 'discover_abilities', ['query' => 'anonymous_read']);
         self::assertSame(
             [self::ANONYMOUS_READ],
-            array_column($this->arrayAt($this->structuredContentOf($discovered), 'abilities'), 'name')
+            array_column($this->arrayAt($this->payloadOf($discovered), 'abilities'), 'name')
         );
 
         $entries = $this->callTool($session, 'execute_ability', ['name' => self::ANONYMOUS_READ]);
@@ -198,6 +198,35 @@ class McpEndpointTest extends TestCase
         self::assertSame(-32003, $error['code']);
         self::assertSame(['ability' => RecordingPoolAbility::SAVE, 'reason' => 'read_only_mode'], $error['data']);
         self::assertSame([], $save->calls, 'The write was not run.');
+    }
+
+    #[ConfigFixture(Config::XML_PATH_ENABLED, '1')]
+    #[ConfigFixture(Config::XML_PATH_EXPOSE_ANONYMOUS_ABILITIES, '1')]
+    public function testTheFieldsOfACallAreAllItsResultKeepsAndAFieldItLacksIsANote(): void
+    {
+        $this->registerTestAbilities([self::ANONYMOUS_READ => [
+            'title' => 'List the open test entries',
+            'access' => 'read',
+            'aclResources' => ['anonymous'],
+            'answer' => [
+                ['code' => 'first_entry', 'label' => 'First'],
+                ['code' => 'second_entry', 'label' => 'Second'],
+            ],
+        ]]);
+        $session = $this->initialize();
+
+        $response = $this->callTool(
+            $session,
+            'execute_ability',
+            ['name' => self::ANONYMOUS_READ, 'fields' => ['code', 'title']]
+        );
+
+        self::assertSame([['code' => 'first_entry'], ['code' => 'second_entry']], $this->listAnswerOf($response));
+        self::assertSame(
+            'The result has no field "title". Its top-level fields are: code, label.',
+            $this->arrayAt($this->arrayAt($this->resultOf($response), 'content'), 1)['text']
+        );
+        self::assertCount(1, $this->testAbility(self::ANONYMOUS_READ)->calls);
     }
 
     /**
@@ -430,7 +459,7 @@ class McpEndpointTest extends TestCase
             'name' => RecordingPoolAbility::SAVE,
             'arguments' => ['record' => $record],
         ]);
-        self::assertSame(['saved' => ['record' => $record]], $this->structuredContentOf($saved));
+        self::assertSame(['saved' => ['record' => $record]], $this->payloadOf($saved));
         self::assertSame([['record' => $record]], $save->calls, 'The same save without a hash runs.');
     }
 
@@ -638,15 +667,22 @@ class McpEndpointTest extends TestCase
     }
 
     /**
+     * The value a successful tool call returned, decoded from the JSON text that is the first item of its content
+     *
      * @param RestResponse $response
      * @return array<mixed>
      */
-    private function structuredContentOf(RestResponse $response): array
+    private function payloadOf(RestResponse $response): array
     {
         $result = $this->resultOf($response);
         self::assertFalse($result['isError'] ?? null, $response->getBody());
+        self::assertArrayNotHasKey('structuredContent', $result, 'The value is carried once, as text.');
+        $text = $this->arrayAt($this->arrayAt($result, 'content'), 0)['text'] ?? null;
+        self::assertIsString($text);
+        $payload = json_decode($text, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
 
-        return $this->arrayAt($result, 'structuredContent');
+        return $payload;
     }
 
     /**
@@ -669,14 +705,17 @@ class McpEndpointTest extends TestCase
     }
 
     /**
-     * The list a successful call of an ability returned, which the structured content holds under `result`
+     * The list a successful call of an ability returned
      *
      * @param RestResponse $response
      * @return array<mixed>
      */
     private function listAnswerOf(RestResponse $response): array
     {
-        return $this->arrayAt($this->structuredContentOf($response), 'result');
+        $list = $this->payloadOf($response);
+        self::assertTrue(array_is_list($list), $response->getBody());
+
+        return $list;
     }
 
     /**

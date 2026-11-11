@@ -252,6 +252,22 @@
             </argument>
         </arguments>
     </type>
+    <preference for="Hryvinskyi\McpServer\Model\Store\StoreTimeZonesInterface" type="Hryvinskyi\McpServer\Model\Store\StoreTimeZones"/>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\Method\Initialize">
+        <arguments>
+            <argument name="instructions" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Instruction\ServerInstructions</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\McpServer\Model\Protocol\Instruction\ServerInstructions">
+        <arguments>
+            <!-- The parts of the instructions initialize gives the client, in this order; a part with nothing to say is left out -->
+            <argument name="parts" xsi:type="array">
+                <item name="abilityWorkflow" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Instruction\AbilityWorkflowInstruction</item>
+                <item name="personalData" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Instruction\PersonalDataInstruction</item>
+                <item name="timeZone" xsi:type="object">Hryvinskyi\McpServer\Model\Protocol\Instruction\TimeZoneInstruction</item>
+            </argument>
+        </arguments>
+    </type>
     <type name="Hryvinskyi\McpServer\Model\Protocol\Dispatcher">
         <arguments>
             <!-- Method handlers keyed by the JSON-RPC method they handle -->

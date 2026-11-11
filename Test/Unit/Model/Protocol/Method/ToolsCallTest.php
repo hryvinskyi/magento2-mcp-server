@@ -41,7 +41,7 @@ class ToolsCallTest extends TestCase
         self::assertSame([], $first->calls);
         self::assertSame([['a' => 1, '7' => 'seven']], $second->calls);
         self::assertSame(
-            ['content' => [], 'structuredContent' => ['a' => 1, '7' => 'seven'], 'isError' => false],
+            ['content' => [['type' => 'text', 'text' => '{"a":1,"7":"seven"}']], 'isError' => false],
             $response['result']
         );
     }

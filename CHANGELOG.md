@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-11-11
+
+### Added
+- The instructions of `initialize` say that timestamps such as `created_at` and `updated_at` are UTC, in results and
+  in filters, and name the time zone the store runs in, or the zone of each store view when they differ. A model
+  asked for the orders of a day now filters on that day in store time: without it, a store west of UTC lost the
+  orders of the evening.
+- `execute_ability` takes `fields`: the fields of the result to keep, as dot-separated paths such as `items.sku` or
+  `total_count`. A path through a list keeps that field of every element. A field the result lacks is named in a note
+  after the result, with the fields found there, and is never an error, because the ability has already run. A list
+  of products with all its fields could exceed what a client accepts in one result.
+
+### Changed
+- A successful tool result carries its value once, as JSON text in `content`, and no longer also as
+  `structuredContent`. The second copy doubled every answer, and the tools declare no output schema that would call
+  for it. The text is the value itself: a list or a scalar is no longer wrapped as `{"result": …}`. A client that read
+  `structuredContent` reads the text of the first `content` item instead.
+- The instructions are built from the parts of the `parts` pool of
+  `Hryvinskyi\McpServer\Model\Protocol\Instruction\ServerInstructions`. `Initialize` takes an `InstructionInterface`
+  instead of `PersonalDataPolicyInterface`. Both are internal to the module (`Model/Protocol`).
+
 ## [1.4.2] - 2026-11-07
 
 ### Changed

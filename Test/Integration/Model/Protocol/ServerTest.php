@@ -19,13 +19,15 @@ use Hryvinskyi\McpServer\Test\Integration\Fixture\RecordingPoolAbility;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\RegistersTestAbilities;
 use Hryvinskyi\McpServer\Test\Integration\Fixture\SwitchesGraphQlSourceOff;
 use Magento\Authorization\Model\UserContextInterface;
+use Magento\TestFramework\Fixture\Config as ConfigFixture;
 use Magento\TestFramework\Fixture\DbIsolation;
 use Magento\TestFramework\Helper\Bootstrap;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The server the container builds: its method handlers, tools, outcome answers, protocol versions and session store
- * are all wired, so a session can be opened, used and ended
+ * are all wired, so a session can be opened, used and ended, and the instructions name the time zone the store views
+ * run in
  */
 #[DbIsolation(true)]
 class ServerTest extends TestCase
@@ -106,6 +108,20 @@ class ServerTest extends TestCase
         self::assertSame(-32003, $error['code']);
         self::assertSame(['ability' => RecordingPoolAbility::SAVE, 'reason' => 'read_only_mode'], $error['data']);
         self::assertSame([], $save->calls, 'The denied write never ran.');
+    }
+
+    #[ConfigFixture('general/locale/timezone', 'America/Los_Angeles', 'store', 'default')]
+    public function testTheInstructionsNameTheTimeZoneTheStoreViewsRunIn(): void
+    {
+        $opened = $this->server->handle(
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
+            $this->context('')
+        );
+
+        $instructions = $this->arrayAt($this->decode($opened), 'result')['instructions'] ?? null;
+        self::assertIsString($instructions);
+        self::assertStringContainsString('are UTC', $instructions);
+        self::assertStringContainsString('America/Los_Angeles', $instructions);
     }
 
     public function testTheWiredServerRefusesABodyOverOneMebibyteAndABatchOverTwentyMessages(): void

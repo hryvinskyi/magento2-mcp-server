@@ -88,6 +88,36 @@ class ArgumentReader
     }
 
     /**
+     * A list-of-strings argument; an empty list when it is absent
+     *
+     * @param array<string,mixed> $arguments
+     * @param string $name
+     * @return list<string>
+     * @throws InvalidToolArgumentException When the argument is not a JSON array of strings
+     */
+    public function stringList(array $arguments, string $name): array
+    {
+        $value = $arguments[$name] ?? [];
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new InvalidToolArgumentException(
+                __('The argument "%1" must be a list of strings.', $name)->render()
+            );
+        }
+
+        $strings = [];
+        foreach ($value as $item) {
+            if (!is_string($item)) {
+                throw new InvalidToolArgumentException(
+                    __('The argument "%1" must be a list of strings.', $name)->render()
+                );
+            }
+            $strings[] = $item;
+        }
+
+        return $strings;
+    }
+
+    /**
      * An object argument, as its members; no members when it is absent
      *
      * @param array<string,mixed> $arguments

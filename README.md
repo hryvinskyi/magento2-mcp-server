@@ -12,6 +12,8 @@ Lets AI clients that speak the [Model Context Protocol](https://modelcontextprot
 - Turns every query field of the store's GraphQL schema into an ability that runs as a guest. Mutation fields are an option.
 - Lets another module register its own abilities in `di.xml`.
 - Shows the client three tools only: `discover_abilities`, `get_ability_info` and `execute_ability`. The client searches the abilities and runs one by name.
+- Tells the client, when it connects, that timestamps such as `created_at` are UTC and which time zone the store runs in, so a day the user names is filtered on in UTC.
+- Lets the client keep only the fields of a result it needs (`fields` of `execute_ability`), so a list of products or orders stays small.
 - Blocks abilities that change data until you allow them (read-only mode), keeps abilities that any guest may call off until you allow them, asks for confirmation on abilities you mark, and always refuses a built-in list of dangerous ones.
 - Keeps client sessions in the database.
 - Shows the server on **Stores › Settings › MCP Server**: its state, how a client connects (a Claude Desktop extension
@@ -270,10 +272,13 @@ Runs an ability.
 | `name` | The ability name. Required |
 | `arguments` | An object keyed by argument name, as `inputSchema` describes. Default `{}` |
 | `confirmationToken` | The token that the `-32004` error of this same call carried, sent once the user confirmed. Optional |
+| `fields` | Only these fields of the result, each a dot-separated path, for example `["items.sku", "items.price", "total_count"]`. A path through a list keeps that field of every element. Optional; without it the whole result comes back |
 
 The old `confirm` argument is gone. A call that sends it gets a tool error that explains the token.
 
-On success, the tool result holds the value as JSON text and as `structuredContent`. A scalar or a list is wrapped as `{"result": ...}`.
+On success, the tool result holds the value once, as JSON text in its first `content` item. There is no `structuredContent`: the tools declare no output schema, and every client reads the text.
+
+With `fields`, the value keeps only the fields named. A field the result does not have is not an error, because the ability has already run: a note after the value in `content` names it and lists the fields found where the path left the result. A path with an empty name, such as `items..sku`, is refused before the ability runs.
 
 | Case | Answer |
 |------|--------|

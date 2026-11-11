@@ -41,7 +41,7 @@ class GetAbilityInfoTest extends TestCase
 
         self::assertFalse($result['isError']);
         self::assertEquals(
-            [
+            json_decode((string) json_encode([
                 'name' => 'store.store_repository.save',
                 'title' => 'Save a store view',
                 'description' => '',
@@ -55,8 +55,8 @@ class GetAbilityInfoTest extends TestCase
                 'allowedForYou' => false,
                 'inputSchema' => ['type' => 'object', 'properties' => (object) [], 'description' => 'webapi'],
                 'denialReason' => 'read_only_mode',
-            ],
-            $result['structuredContent']
+            ])),
+            $this->kit->payloadObjects($result)
         );
     }
 
@@ -67,11 +67,9 @@ class GetAbilityInfoTest extends TestCase
             $this->kit->callContext()
         );
 
-        self::assertIsArray($result['structuredContent']);
-        self::assertSame(
-            ['denied', 'anonymous_ability'],
-            [$result['structuredContent']['exposure'] ?? null, $result['structuredContent']['denialReason'] ?? null]
-        );
+        $info = $this->kit->payload($result);
+        self::assertIsArray($info);
+        self::assertSame(['denied', 'anonymous_ability'], [$info['exposure'] ?? null, $info['denialReason'] ?? null]);
     }
 
     public function testAnAbilityAClientMayCallHasNoDenialReason(): void
@@ -81,8 +79,9 @@ class GetAbilityInfoTest extends TestCase
             $this->kit->callContext()
         );
 
-        self::assertIsArray($result['structuredContent']);
-        self::assertArrayNotHasKey('denialReason', $result['structuredContent']);
+        $info = $this->kit->payload($result);
+        self::assertIsArray($info);
+        self::assertArrayNotHasKey('denialReason', $info);
     }
 
     public function testAnAbilityShownPersonalDataSaysSo(): void
@@ -91,8 +90,9 @@ class GetAbilityInfoTest extends TestCase
 
         $result = $this->tool()->call(['name' => 'store.store_repository.save'], $this->kit->callContext());
 
-        self::assertIsArray($result['structuredContent']);
-        self::assertSame('shown', $result['structuredContent']['personalData'] ?? null);
+        $info = $this->kit->payload($result);
+        self::assertIsArray($info);
+        self::assertSame('shown', $info['personalData'] ?? null);
     }
 
     public function testAnUnknownNameIsAToolErrorPointingAtDiscovery(): void

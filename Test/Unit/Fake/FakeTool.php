@@ -74,7 +74,7 @@ class FakeTool implements ToolInterface
         $this->calls[] = $arguments;
 
         return $this->behaviour === null
-            ? ['content' => [], 'structuredContent' => $arguments, 'isError' => false]
+            ? ['content' => [['type' => 'text', 'text' => (string) json_encode($arguments)]], 'isError' => false]
             : ($this->behaviour)($arguments, $context);
     }
 }

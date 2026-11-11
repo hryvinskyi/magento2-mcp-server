@@ -14,9 +14,10 @@ use Hryvinskyi\McpServer\Model\Protocol\JsonEncoder;
 /**
  * Builds MCP tool results
  *
- * A successful result carries its value twice: as JSON text in `content`, for clients that only read text, and as
- * `structuredContent`, which must be a JSON object, so a scalar, null or a list is wrapped as `{"result": …}`. An error
- * result carries a message the model reads to correct its call.
+ * A successful result carries its value once, as JSON text in `content`, which every client reads. It carries no
+ * `structuredContent`: the tools declare no output schema, and a second copy of the value would double every answer.
+ * Notes for the model may follow the value in `content`, each as a text of its own. An error result carries a message
+ * the model reads to correct its call.
  */
 class ToolResults
 {
@@ -36,13 +37,32 @@ class ToolResults
      */
     public function success(mixed $value): array
     {
-        $structured = is_array($value) && $value !== [] && !array_is_list($value) ? $value : ['result' => $value];
-
         return [
-            'content' => [['type' => 'text', 'text' => $this->encoder->encode($structured)]],
-            'structuredContent' => $structured,
+            'content' => [['type' => 'text', 'text' => $this->encoder->encode($value)]],
             'isError' => false,
         ];
+    }
+
+    /**
+     * The tool result with these notes for the model after its content, each as a text of its own
+     *
+     * @param array<string,mixed> $result
+     * @param list<string> $notes
+     * @return array<string, mixed>
+     */
+    public function withNotes(array $result, array $notes): array
+    {
+        if ($notes === []) {
+            return $result;
+        }
+
+        $content = is_array($result['content'] ?? null) ? array_values($result['content']) : [];
+        foreach ($notes as $note) {
+            $content[] = ['type' => 'text', 'text' => $note];
+        }
+        $result['content'] = $content;
+
+        return $result;
     }
 
     /**

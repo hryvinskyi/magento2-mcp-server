@@ -30,7 +30,7 @@ class ExtensionManifestTest extends TestCase
                 'manifest_version' => '0.3',
                 'name' => 'magento-mcp-shop-example-com',
                 'display_name' => 'Magento MCP · shop.example.com',
-                'version' => '1.0.0',
+                'version' => '1.0.1',
                 'description' => 'Connects Claude to the Magento store at shop.example.com through its MCP server.',
                 'author' => ['name' => 'Volodymyr Hryvinskyi', 'url' => 'https://github.com/hryvinskyi'],
                 'server' => [

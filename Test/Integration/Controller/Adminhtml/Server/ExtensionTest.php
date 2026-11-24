@@ -36,6 +36,7 @@ class ExtensionTest extends AbstractBackendController
         'server/http-transport.js',
         'server/line-reader.js',
         'server/messages.js',
+        'server/settings.js',
     ];
 
     /**
@@ -147,12 +148,12 @@ class ExtensionTest extends AbstractBackendController
     }
 
     /**
-     * Requiring the bridge's entry point loads every module it requires without starting it, so a file the bridge
-     * needs but the download leaves out fails here, as it would on the admin's machine
+     * Importing the bridge's entry point, as Claude Desktop does, starts it, and with no input it ends at once, so a
+     * file the bridge needs but the download leaves out fails here, as it would on the admin's machine
      *
      * @return void
      */
-    public function testTheDownloadedBridgeLoadsInNode(): void
+    public function testTheDownloadedBridgeStartsInNode(): void
     {
         $node = (new ExecutableFinder())->find('node');
         if ($node === null) {
@@ -160,14 +161,18 @@ class ExtensionTest extends AbstractBackendController
         }
 
         $dir = $this->unpack($this->open((string) $this->download()->getBody()));
-        $process = new Process([$node, '-e', 'require(process.argv[1])', $dir . '/server/index.js']);
+        $process = new Process(
+            [$node, '-e', 'import(process.argv[1])', 'file://' . $dir . '/server/index.js'],
+            null,
+            ['MAGENTO_MCP_URL' => 'https://shop.example/rest/all/V1/mcp', 'MAGENTO_MCP_TOKEN' => 'fake-token']
+        );
         $process->setTimeout(30);
         $process->run();
 
         self::assertSame(
             0,
             $process->getExitCode(),
-            'The downloaded bridge loads in Node: ' . $process->getErrorOutput()
+            'The downloaded bridge starts in Node: ' . $process->getErrorOutput()
         );
     }
 

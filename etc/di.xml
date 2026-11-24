@@ -465,6 +465,7 @@
                 <item name="server/http-transport.js" xsi:type="string">extension/server/http-transport.js</item>
                 <item name="server/line-reader.js" xsi:type="string">extension/server/line-reader.js</item>
                 <item name="server/messages.js" xsi:type="string">extension/server/messages.js</item>
+                <item name="server/settings.js" xsi:type="string">extension/server/settings.js</item>
             </argument>
         </arguments>
     </type>

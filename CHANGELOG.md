@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-11-24
+
+### Fixed
+- The Claude Desktop extension (now 1.0.1) starts under Claude Desktop's built-in Node.js. That runtime imports the
+  entry point instead of starting it as the main module, and the bridge started only as the main module: it stayed
+  silent, and Claude Desktop gave up on `initialize` after two minutes, whatever the endpoint and the token. Download
+  the extension again from the MCP Server page and install it over the old one. Until then, turn off **Use built-in
+  Node.js for MCP** in Claude Desktop, with Node.js installed.
+- A refused setting, such as a token that holds a space, ends the extension at once. Under the built-in Node.js its
+  process stayed alive, so the client waited two minutes after the reason was written to its log.
+
 ## [1.5.0] - 2026-11-11
 
 ### Added

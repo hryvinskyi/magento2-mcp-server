@@ -27,7 +27,7 @@ class ExtensionManifest implements ExtensionManifestInterface
      * Raise it only when the bridge under extension/server or the manifest this class builds changes, so Claude
      * Desktop sees a new extension exactly when there is one.
      */
-    public const VERSION = '1.0.0';
+    public const VERSION = '1.0.1';
 
     private const MANIFEST_VERSION = '0.3';
     private const NAME_PREFIX = 'magento-mcp-';

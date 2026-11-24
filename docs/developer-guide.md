@@ -2,11 +2,11 @@
 title: MCP Server
 module: Hryvinskyi_McpServer
 doc-type: Developer Guide
-version: 1.5.0
+version: 1.5.1
 lede: Install, connect, operate and extend the Model Context Protocol server of a Magento store.
 magento: 2.4.6 - 2.4.9
 php: 8.1 - 8.5
-published: 2026-11-11
+published: 2026-11-24
 publisher: Hryvinskyi
 docs-url: github.com/hryvinskyi/magento2-mcp-server
 edition: Magento Open Source and Adobe Commerce
@@ -139,7 +139,7 @@ curl -s -i https://<host>/rest/all/V1/mcp \
 
 `<host>` is the store's host name. Expected: HTTP status 200, a `mcp-session-id` header of 32 hexadecimal characters,
 and a body whose `result` holds `"protocolVersion":"2025-06-18"` and
-`"serverInfo":{"name":"Magento MCP Server","version":"1.5.0"}`.
+`"serverInfo":{"name":"Magento MCP Server","version":"1.5.1"}`.
 
 Call an ability in that session, with the session id from the header:
 
@@ -756,6 +756,7 @@ These classes are outside `Api/`: read `CHANGELOG.md` before an upgrade if you c
 | GraphQL abilities are listed but denied | They run as a guest: set **Expose Anonymous Abilities** to **Yes**. |
 | The `.mcpb` download fails with a message about the endpoint | The default store view's secure base URL must be an https address with a host name, without a user name or password. |
 | Claude Desktop refuses the endpoint | The extension requires `https://` except on `localhost`, `127.0.0.1` or `[::1]`. |
+| Claude Desktop waits two minutes on `initialize`, and the extension log holds no output | The installed extension is 1.0.0, which does not start under Claude Desktop's built-in Node.js: download the `.mcpb` file again (1.0.1, from MCP Server 1.5.1) and open it. Until then, turn off **Use built-in Node.js for MCP** in Claude Desktop, with Node.js 18 or later installed. |
 | stdio exits with code 1 at start | The admin user is missing, inactive, locked or expired, lacks **Use the MCP endpoint**, or the server is off. |
 | Error `-32603`, *Internal error* | `var/log/exception.log` holds the exception; *Responses and errors* lists the lines it is logged under. |
 | A tool result reads *Internal Error. … Report ID: …* | Look the Report ID up in `var/log/exception.log`. |
@@ -817,7 +818,7 @@ that need an action.
   such mark: 1.4.1 changed `IntegrationDirectoryInterface`, under `Model/Admin/Integration`, in a patch release. The
   `di.xml` arguments of this guide belong to such classes.
 - No deprecation period is published beyond semantic versioning. Read the changelog before a major upgrade.
-- The Claude Desktop extension has its own version (1.0.0), raised only when the bridge or its manifest changes; the
+- The Claude Desktop extension has its own version (1.0.1), raised only when the bridge or its manifest changes; the
   package version does not change it.
 
 # Appendix A — Document history {.unnumbered}
@@ -826,5 +827,6 @@ that need an action.
 |--------|------------|----------------------------------------------------------|
 | 1.0 | 2026-11-09 | First version, for MCP Server 1.4.2. Replaces the earlier single user manual, now split into this guide and the User Guide. |
 | 1.1 | 2026-11-11 | For MCP Server 1.5.0: the instructions of `initialize` and their time zone, and `fields` of `execute_ability`. |
+| 1.2 | 2026-11-24 | For MCP Server 1.5.1: the Claude Desktop extension 1.0.1, and its symptom before it in *Troubleshooting*. |
 
 Table: Document history

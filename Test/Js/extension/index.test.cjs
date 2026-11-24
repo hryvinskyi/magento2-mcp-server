@@ -13,10 +13,10 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const {spawn} = require('node:child_process');
-const {readSettings} = require('../../../extension/server/index');
 
 // The files the extension download ships under server/; the bridge must run from these alone.
-const SHIPPED = ['index.js', 'bridge.js', 'http-transport.js', 'line-reader.js', 'messages.js'];
+const SHIPPED = ['index.js', 'bridge.js', 'http-transport.js', 'line-reader.js', 'messages.js', 'settings.js'];
+const IMPORT_HOST = path.join(__dirname, 'import-host.cjs');
 const SOURCE = path.join(__dirname, '..', '..', '..', 'extension', 'server');
 const TOKEN = 'fake-token-for-tests';
 const SESSION = 'd'.repeat(32);
@@ -195,6 +195,65 @@ test('a token with a trailing newline starts and is sent trimmed', async (contex
     assert.equal(store.requests[0].headers.authorization, `Bearer ${TOKEN}`);
 });
 
+/**
+ * Hand these lines to the bridge inside a runtime that imports it, and wait for an answer or for the runtime's exit
+ *
+ * @param {test.TestContext} context
+ * @param {string} entry
+ * @param {Record<string, string>} environment
+ * @param {string[]} lines
+ * @returns {Promise<{code: number|null, stdout: string, stderr: string}>} `code` is null when it answered
+ */
+function runImported(context, entry, environment, lines) {
+    const child = spawn(process.execPath, [IMPORT_HOST, entry], {env: environment, stdio: ['pipe', 'pipe', 'pipe']});
+    context.after(() => child.kill('SIGKILL'));
+
+    return new Promise((resolve, reject) => {
+        let stdout = '';
+        let stderr = '';
+        const late = setTimeout(() => reject(new Error(`No answer and no exit. ${stderr}`)), 5000);
+        const finish = (code) => {
+            clearTimeout(late);
+            resolve({code, stdout, stderr});
+        };
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+        child.stdout.on('data', (chunk) => {
+            stdout += chunk;
+            if (stdout.endsWith('\n')) {
+                finish(null);
+            }
+        });
+        child.stderr.on('data', (chunk) => {
+            stderr += chunk;
+        });
+        child.on('error', reject);
+        child.on('close', finish);
+        child.stdin.write(lines.map((line) => `${line}\n`).join(''));
+    });
+}
+
+test('the bridge answers in a runtime that imports it instead of starting it', async (context) => {
+    const entry = shippedCopy(context);
+    const store = await endpoint(context);
+    const environment = {MAGENTO_MCP_URL: store.url, MAGENTO_MCP_TOKEN: TOKEN};
+    const {stdout} = await runImported(context, entry, environment, [LINES[0]]);
+
+    assert.equal(stdout, '{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18"}}\n');
+    assert.equal(store.requests[0].headers.authorization, `Bearer ${TOKEN}`);
+});
+
+test('a refused setting ends a runtime that imports the bridge, so the client does not wait for an answer', async (context) => {
+    const entry = shippedCopy(context);
+    const environment = {MAGENTO_MCP_URL: 'https://shop.example/rest/all/V1/mcp', MAGENTO_MCP_TOKEN: `${TOKEN} x`};
+    const {code, stdout, stderr} = await runImported(context, entry, environment, [LINES[0]]);
+
+    assert.equal(code, 1);
+    assert.equal(stdout, '');
+    assert.match(stderr, /The access token holds characters/);
+    assert.equal(stderr.includes(TOKEN), false);
+});
+
 for (const [name, environment] of [
     ['a plain http endpoint on another host', {MAGENTO_MCP_URL: 'http://example.com/rest/all/V1/mcp', MAGENTO_MCP_TOKEN: TOKEN}],
     ['a token holding a space', {MAGENTO_MCP_URL: 'https://shop.example/rest/all/V1/mcp', MAGENTO_MCP_TOKEN: `${TOKEN} x`}],
@@ -211,39 +270,3 @@ for (const [name, environment] of [
         assert.equal(stderr.includes(TOKEN), false);
     });
 }
-
-test('the settings accept https anywhere and plain http only to this machine', () => {
-    for (const url of ['https://shop.example/rest/all/V1/mcp', 'http://localhost:8080/mcp', 'http://127.0.0.1/mcp', 'http://[::1]:9000/mcp']) {
-        assert.equal(readSettings({MAGENTO_MCP_URL: url, MAGENTO_MCP_TOKEN: TOKEN}).ok, true, url);
-    }
-
-    for (const [url, message] of [
-        ['http://shop.example/mcp', /plain http:\/\/ to shop\.example/],
-        ['http://127.0.0.1.example.com/mcp', /plain http:\/\//],
-        ['ftp://shop.example/mcp', /not an http/],
-        ['not a url', /not an http/],
-        ['https://user:secret@shop.example/mcp', /not an http/]
-    ]) {
-        const settings = readSettings({MAGENTO_MCP_URL: url, MAGENTO_MCP_TOKEN: TOKEN});
-        assert.equal(settings.ok, false, url);
-        assert.match(settings.message, message);
-    }
-});
-
-test('the settings name the store\'s host and accept every token68 character', () => {
-    const settings = readSettings({
-        MAGENTO_MCP_URL: 'https://shop.example:8443/rest/all/V1/mcp',
-        MAGENTO_MCP_TOKEN: 'Az09._~+/=-'
-    });
-
-    assert.deepEqual({...settings}, {
-        ok: true,
-        url: 'https://shop.example:8443/rest/all/V1/mcp',
-        token: 'Az09._~+/=-',
-        host: 'shop.example:8443'
-    });
-});
-
-test('the settings refuse a missing endpoint', () => {
-    assert.equal(readSettings({MAGENTO_MCP_TOKEN: TOKEN}).ok, false);
-});

@@ -40,6 +40,7 @@ class ClaudeDesktopExtensionTest extends TestCase
         'server/http-transport.js' => 'extension/server/http-transport.js',
         'server/line-reader.js' => 'extension/server/line-reader.js',
         'server/messages.js' => 'extension/server/messages.js',
+        'server/settings.js' => 'extension/server/settings.js',
     ];
 
     /**

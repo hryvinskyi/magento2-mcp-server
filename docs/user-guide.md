@@ -2,11 +2,11 @@
 title: MCP Server
 module: Hryvinskyi_McpServer
 doc-type: User Guide
-version: 1.5.0
+version: 1.5.1
 lede: Connect an AI assistant such as Claude to your store, and decide what it may read and change.
 magento: 2.4.6 - 2.4.9
 php: 8.1 - 8.5
-published: 2026-11-11
+published: 2026-11-24
 publisher: Hryvinskyi
 docs-url: github.com/hryvinskyi/magento2-mcp-server
 edition: Magento Open Source and Adobe Commerce
@@ -732,6 +732,13 @@ refuses to start.* The extension sends the access token only to an address that 
 store runs on your own computer. Ask your developer to give the store a secure address; the message tells them what
 to change.
 
+## Claude Desktop cannot connect, or stops after two minutes
+
+An extension downloaded before MCP Server 1.5.1 does not start in Claude Desktop. Download it again on the MCP Server
+page, open the file, and install it over the old one. Until your store runs 1.5.1, turn off **Use built-in Node.js for
+MCP** in Claude Desktop, under **Settings** > **Extensions** > **Advanced settings**. Your computer then needs Node.js
+18 or later.
+
 ## Questions
 
 **Does the assistant see everything in my store?**
@@ -782,6 +789,7 @@ Table: Glossary
 |--------|------------|----------------------------------------------------------|
 | 1.0 | 2026-11-09 | First version, for MCP Server 1.4.2. |
 | 1.1 | 2026-11-11 | For MCP Server 1.5.0: the assistant is told your store's time zone. |
+| 1.2 | 2026-11-24 | For MCP Server 1.5.1: what to do when Claude Desktop cannot connect. |
 
 Table: Document history
 
